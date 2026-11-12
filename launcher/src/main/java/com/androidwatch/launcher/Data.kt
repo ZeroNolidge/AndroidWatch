@@ -105,6 +105,8 @@ class StepTracker(
     private val prefs: SharedPreferences,
     /** steps today, and when counting started if that was after midnight (first use). */
     private val onSteps: (steps: Int, since: Long?) -> Unit,
+    /** Raw readings for the tap-to-show diagnostic line. */
+    private val onDebug: (String) -> Unit = {},
 ) :
     SensorEventListener {
 
@@ -113,7 +115,10 @@ class StepTracker(
 
     val available get() = sensor != null
 
+    private var events = 0
+
     fun start() {
+        events = 0
         sensor?.let { manager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
     }
 
@@ -163,6 +168,9 @@ class StepTracker(
             .putLong("steps_last_raw", raw)
             .apply()
         onSteps((carried + raw - baseline).toInt(), since.takeIf { it > 0 })
+        events++
+        val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(now))
+        onDebug("sensor total $raw · start $baseline · carried $carried\nlast reading $time · readings since opened: $events")
     }
 
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}

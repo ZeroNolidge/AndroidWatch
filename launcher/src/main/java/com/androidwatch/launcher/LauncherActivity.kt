@@ -27,6 +27,7 @@ class FaceState {
     val weatherStatus = mutableStateOf<String?>("Weather loading…")
     /** When step counting started, if after midnight (first day of use). */
     val stepsSince = mutableStateOf<Long?>(null)
+    val stepsDebug = mutableStateOf("no step readings yet")
     val apps = mutableStateOf<List<AppEntry>>(emptyList())
     val favorites = mutableStateOf<List<String>>(emptyList())
     /** Bumped each time Home is pressed while we're already showing, to jump back to the face. */
@@ -64,10 +65,14 @@ class LauncherActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        steps = StepTracker(this, prefs) { count, since ->
-            state.steps.value = count
-            state.stepsSince.value = since
-        }
+        steps = StepTracker(
+            this, prefs,
+            onSteps = { count, since ->
+                state.steps.value = count
+                state.stepsSince.value = since
+            },
+            onDebug = { state.stepsDebug.value = it },
+        )
         state.favorites.value = favorites.get()
         reloadApps()
 

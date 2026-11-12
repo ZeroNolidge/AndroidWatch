@@ -167,12 +167,20 @@ private fun WatchFace(
         Spacer(Modifier.height(14.dp))
 
         if (stepsAvailable) {
+            var showDebug by remember { mutableStateOf(false) }
             Box(
                 Modifier
                     .background(Chip, RoundedCornerShape(50))
+                    .clickable { showDebug = !showDebug }
                     .padding(horizontal = 14.dp, vertical = 6.dp),
             ) {
                 Text("👟 ${state.steps.value ?: "–"} steps", color = Color.White, fontSize = 15.sp)
+            }
+            if (showDebug) {
+                Text(
+                    state.stepsDebug.value, color = Muted, fontSize = 10.sp, lineHeight = 13.sp,
+                    textAlign = TextAlign.Center, modifier = Modifier.padding(top = 3.dp),
+                )
             }
             state.stepsSince.value?.let { since ->
                 val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(since))
