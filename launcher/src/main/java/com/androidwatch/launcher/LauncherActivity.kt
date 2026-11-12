@@ -28,6 +28,7 @@ class FaceState {
     /** When step counting started, if after midnight (first day of use). */
     val stepsSince = mutableStateOf<Long?>(null)
     val stepsDebug = mutableStateOf("no step readings yet")
+    val raiseToWake = mutableStateOf(false)
     val apps = mutableStateOf<List<AppEntry>>(emptyList())
     val favorites = mutableStateOf<List<String>>(emptyList())
     /** Bumped each time Home is pressed while we're already showing, to jump back to the face. */
@@ -74,6 +75,8 @@ class LauncherActivity : ComponentActivity() {
             onDebug = { state.stepsDebug.value = it },
         )
         state.favorites.value = favorites.get()
+        state.raiseToWake.value = RaiseToWakeService.isEnabled(this)
+        RaiseToWakeService.ensureRunning(this)
         reloadApps()
 
         // Refresh the app list when apps are installed or removed.
@@ -102,6 +105,7 @@ class LauncherActivity : ComponentActivity() {
                 onLaunch = { Apps.launch(this, it) },
                 onToggleFavorite = ::toggleFavorite,
                 onWeatherTapped = ::onWeatherTapped,
+                onToggleRaiseToWake = ::toggleRaiseToWake,
             )
         }
     }
@@ -135,6 +139,14 @@ class LauncherActivity : ComponentActivity() {
             val apps = runCatching { Apps.load(this) }.getOrDefault(emptyList())
             runOnUiThread { state.apps.value = apps }
         }
+    }
+
+    private fun toggleRaiseToWake() {
+        val enable = !state.raiseToWake.value
+        RaiseToWakeService.setEnabled(this, enable)
+        state.raiseToWake.value = enable
+        val msg = if (enable) "Raise to wake on. Uses extra battery while the screen is off." else "Raise to wake off"
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
     }
 
     private fun toggleFavorite(app: AppEntry) {

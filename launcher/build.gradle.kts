@@ -14,8 +14,8 @@ android {
         // Both watches are Android 8.1 or newer.
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "1.5"
     }
 
     buildTypes {
@@ -43,6 +43,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     // Wi-Fi/cell-based location for the weather (the M99 Mini has Play Services).
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // Play Services pulls in an old Fragment library; this newer one is needed by registerForActivityResult.
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
 }
 
 dependencies {

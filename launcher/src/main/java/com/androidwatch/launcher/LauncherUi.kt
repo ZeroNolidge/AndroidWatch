@@ -60,6 +60,7 @@ fun LauncherApp(
     onLaunch: (AppEntry) -> Unit,
     onToggleFavorite: (AppEntry) -> Unit,
     onWeatherTapped: () -> Unit = {},
+    onToggleRaiseToWake: () -> Unit = {},
 ) {
     val pager = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
@@ -83,7 +84,7 @@ fun LauncherApp(
                     onOpenApps = { scope.launch { pager.animateScrollToPage(1) } },
                     onWeatherTapped = onWeatherTapped,
                 )
-                else -> AppDrawer(state, onLaunch, onToggleFavorite)
+                else -> AppDrawer(state, onLaunch, onToggleFavorite, onToggleRaiseToWake)
             }
         }
     }
@@ -235,8 +236,23 @@ private fun AppDrawer(
     state: FaceState,
     onLaunch: (AppEntry) -> Unit,
     onToggleFavorite: (AppEntry) -> Unit,
+    onToggleRaiseToWake: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
+        // Watch Face settings live at the top of the app list.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                .background(Chip, RoundedCornerShape(50))
+                .clickable(onClick = onToggleRaiseToWake)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("✋ Raise to wake", color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            val on = state.raiseToWake.value
+            Text(if (on) "ON" else "OFF", color = if (on) Accent else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
         Text(
             "Apps · long-press to pin",
             color = Muted,
