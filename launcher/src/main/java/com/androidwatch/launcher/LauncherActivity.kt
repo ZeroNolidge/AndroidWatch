@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.location.Location
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
@@ -24,6 +25,8 @@ class FaceState {
     val weather = mutableStateOf<Weather?>(null)
     /** Why there is no weather yet (shown instead of it), or null. */
     val weatherStatus = mutableStateOf<String?>("Weather loading…")
+    /** When step counting started, if after midnight (first day of use). */
+    val stepsSince = mutableStateOf<Long?>(null)
     val apps = mutableStateOf<List<AppEntry>>(emptyList())
     val favorites = mutableStateOf<List<String>>(emptyList())
     /** Bumped each time Home is pressed while we're already showing, to jump back to the face. */
@@ -38,6 +41,7 @@ class LauncherActivity : ComponentActivity() {
     private val favorites by lazy { Favorites(prefs) }
     private lateinit var steps: StepTracker
     private var lastWeatherFetch = 0L
+    private var weatherInFlight = false
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -60,7 +64,10 @@ class LauncherActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        steps = StepTracker(this, prefs) { state.steps.value = it }
+        steps = StepTracker(this, prefs) { count, since ->
+            state.steps.value = count
+            state.stepsSince.value = since
+        }
         state.favorites.value = favorites.get()
         reloadApps()
 
@@ -135,39 +142,74 @@ class LauncherActivity : ComponentActivity() {
     /** At most every 30 minutes, and only while the face is visible. */
     private fun refreshWeather(force: Boolean) {
         val now = System.currentTimeMillis()
+        if (weatherInFlight) return
         if (!force && now - lastWeatherFetch < 30 * 60_000) return
-        fun problem(msg: String) {
-            lastWeatherFetch = 0 // retry next time the face is shown
-            if (state.weather.value == null) state.weatherStatus.value = msg
-        }
-        if (!hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) return problem("Tap to allow location for weather")
-        if (!WeatherClient.isLocationOn(this)) return problem("Location is off · tap to turn on")
+        weatherInFlight = true
         lastWeatherFetch = now
-        if (state.weather.value == null) state.weatherStatus.value = "Finding location…"
-        WeatherClient.findLocation(this) { location ->
-            if (location == null) return@findLocation problem("No location yet · tap to retry")
+        if (state.weather.value == null && state.weatherStatus.value == INITIAL_STATUS) {
+            state.weatherStatus.value = "Finding location…"
+        }
+
+        fun fetchWeather(deviceLocation: Location?) {
             background.execute {
-                val weather = runCatching { WeatherClient.fetch(location.latitude, location.longitude) }.getOrNull()
+                // No device location (indoors, no permission, location off)? Use the IP address.
+                val location = deviceLocation ?: WeatherClient.ipLocation()
+                if (location != null) saveLocation(location)
+                val weather = location?.let { runCatching { WeatherClient.fetch(it.latitude, it.longitude) }.getOrNull() }
                 runOnUiThread {
-                    if (weather != null) {
-                        state.weather.value = weather
-                        state.weatherStatus.value = null
-                    } else {
-                        problem("Weather needs internet · tap to retry")
+                    weatherInFlight = false
+                    when {
+                        weather != null -> {
+                            state.weather.value = weather
+                            state.weatherStatus.value = null
+                        }
+                        location == null -> weatherProblem("No internet · tap to retry")
+                        else -> weatherProblem("Weather service unreachable · tap to retry")
                     }
                 }
             }
         }
+
+        val cached = cachedLocation(maxAgeMs = 6 * 60 * 60_000L)
+        when {
+            cached != null -> fetchWeather(cached)
+            hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION) && WeatherClient.isLocationOn(this) ->
+                WeatherClient.findLocation(this) { fetchWeather(it) }
+            else -> fetchWeather(null)
+        }
     }
 
-    /** Tapping the weather status fixes whatever is blocking it. */
+    private fun weatherProblem(msg: String) {
+        lastWeatherFetch = System.currentTimeMillis() - 28 * 60_000 // retry in ~2 minutes
+        if (state.weather.value == null) state.weatherStatus.value = msg
+    }
+
+    private fun saveLocation(l: Location) {
+        prefs.edit()
+            .putString("loc_lat", l.latitude.toString())
+            .putString("loc_lon", l.longitude.toString())
+            .putLong("loc_time", System.currentTimeMillis())
+            .apply()
+    }
+
+    private fun cachedLocation(maxAgeMs: Long): Location? {
+        if (System.currentTimeMillis() - prefs.getLong("loc_time", 0) > maxAgeMs) return null
+        val lat = prefs.getString("loc_lat", null)?.toDoubleOrNull() ?: return null
+        val lon = prefs.getString("loc_lon", null)?.toDoubleOrNull() ?: return null
+        return Location("cache").apply { latitude = lat; longitude = lon }
+    }
+
+    /** Tap on the weather: retry now, and ask for location permission (more accurate) if missing. */
     private fun onWeatherTapped() {
-        when {
-            !hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ->
-                requestPermissions.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION))
-            !WeatherClient.isLocationOn(this) ->
-                runCatching { startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
-            else -> refreshWeather(force = true)
+        if (!hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+            requestPermissions.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION))
+        } else {
+            prefs.edit().remove("loc_time").apply() // look the location up again
+            refreshWeather(force = true)
         }
+    }
+
+    private companion object {
+        const val INITIAL_STATUS = "Weather loading…"
     }
 }

@@ -97,7 +97,12 @@ class Favorites(private val prefs: SharedPreferences) {
  * baseline at the start of each day (and carry steps across reboots) to get
  * "steps today".
  */
-class StepTracker(context: Context, private val prefs: SharedPreferences, private val onSteps: (Int) -> Unit) :
+class StepTracker(
+    context: Context,
+    private val prefs: SharedPreferences,
+    /** steps today, and when counting started if that was after midnight (first use). */
+    private val onSteps: (steps: Int, since: Long?) -> Unit,
+) :
     SensorEventListener {
 
     private val manager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -113,26 +118,40 @@ class StepTracker(context: Context, private val prefs: SharedPreferences, privat
 
     override fun onSensorChanged(event: SensorEvent) {
         val raw = event.values[0].toLong()
-        val today = LocalDate.now().toString()
+        val now = System.currentTimeMillis()
+        val today = LocalDate.now()
+        val day = prefs.getString("steps_day", null)
         var baseline = prefs.getLong("steps_baseline", raw)
         var carried = prefs.getLong("steps_carried", 0)
         val lastRaw = prefs.getLong("steps_last_raw", raw)
+        var since = prefs.getLong("steps_since", 0)
 
-        if (prefs.getString("steps_day", null) != today) {
-            baseline = raw
+        if (day != today.toString()) {
             carried = 0
+            if (day == today.minusDays(1).toString()) {
+                // New day: count from the last reading we saw yesterday, so steps taken
+                // this morning before the face was opened still count. (Steps between
+                // that last reading and midnight are counted as today: a small overcount.)
+                baseline = if (raw >= lastRaw) lastRaw else 0 // 0: rebooted overnight
+                since = 0
+            } else {
+                // First use, or not used for days: we can only count from now.
+                baseline = raw
+                since = now
+            }
         } else if (raw < lastRaw) {
             // Counter restarted (reboot): keep what we had and count from zero.
             carried += lastRaw - baseline
             baseline = 0
         }
         prefs.edit()
-            .putString("steps_day", today)
+            .putString("steps_day", today.toString())
+            .putLong("steps_since", since)
             .putLong("steps_baseline", baseline)
             .putLong("steps_carried", carried)
             .putLong("steps_last_raw", raw)
             .apply()
-        onSteps((carried + raw - baseline).toInt())
+        onSteps((carried + raw - baseline).toInt(), since.takeIf { it > 0 })
     }
 
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
@@ -155,7 +174,7 @@ object WeatherClient {
 
     /**
      * Finds the watch's approximate location, calling [onResult] once (on the main
-     * thread) with the location, or null after ~30 s. Tries Google's fused location
+     * thread) with the location, or null after ~15 s. Tries Google's fused location
      * first (Wi-Fi/cell based, works indoors), then the plain Android providers.
      */
     @SuppressLint("MissingPermission") // Caller checks ACCESS_COARSE_LOCATION.
@@ -167,7 +186,7 @@ object WeatherClient {
             done = true
             onResult(loc)
         }
-        main.postDelayed({ finish(null) }, 30_000)
+        main.postDelayed({ finish(null) }, 15_000)
 
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         fun androidFallback() {
@@ -188,7 +207,7 @@ object WeatherClient {
             listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
                 .filter { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
                 .forEach { runCatching { lm.requestLocationUpdates(it, 0L, 0f, listener, Looper.getMainLooper()) } }
-            main.postDelayed({ lm.removeUpdates(listener) }, 30_000)
+            main.postDelayed({ lm.removeUpdates(listener) }, 15_000)
         }
 
         try {
@@ -199,6 +218,37 @@ object WeatherClient {
         } catch (_: Exception) {
             androidFallback() // Play Services missing (e.g. some other watch)
         }
+    }
+
+    /**
+     * Rough (city-level) location from the internet connection's IP address.
+     * Needs no permission and works indoors. Blocking: run off the main thread.
+     */
+    fun ipLocation(): Location? {
+        val services = listOf(
+            "https://ipwho.is/?fields=success,latitude,longitude",
+            "https://ipapi.co/json/",
+        )
+        for (service in services) {
+            val loc = runCatching {
+                val conn = URL(service).openConnection() as HttpURLConnection
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 10_000
+                conn.setRequestProperty("User-Agent", "AndroidWatch-WatchFace")
+                try {
+                    val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                    if (!json.optBoolean("success", true) || !json.has("latitude")) null
+                    else Location("ip").apply {
+                        latitude = json.getDouble("latitude")
+                        longitude = json.getDouble("longitude")
+                    }
+                } finally {
+                    conn.disconnect()
+                }
+            }.getOrNull()
+            if (loc != null) return loc
+        }
+        return null
     }
 
     /** Blocking network call: run off the main thread. */

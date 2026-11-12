@@ -174,6 +174,10 @@ private fun WatchFace(
             ) {
                 Text("👟 ${state.steps.value ?: "–"} steps", color = Color.White, fontSize = 15.sp)
             }
+            state.stepsSince.value?.let { since ->
+                val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(since))
+                Text("counting since $time", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 3.dp))
+            }
         }
 
         Spacer(Modifier.weight(1f))
