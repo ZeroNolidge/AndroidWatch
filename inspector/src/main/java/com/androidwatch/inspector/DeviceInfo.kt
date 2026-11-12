@@ -57,7 +57,7 @@ object DeviceInfo {
         26 to "android.app.NotificationChannel",
         27 to "android.app.WallpaperColors",
         28 to "android.graphics.ImageDecoder",
-        29 to "android.app.RecoverableSecurityException",
+        29 to "android.app.role.RoleManager",
         30 to "android.app.ApplicationExitInfo",
         31 to "android.app.ForegroundServiceStartNotAllowedException",
         33 to "android.window.OnBackInvokedDispatcher",
