@@ -11,12 +11,39 @@ whatever Android version the watch is really running.
 | Module | What it does |
 | --- | --- |
 | `inspector` | **Watch Inspector**: shows the watch's *real* Android version (catches faked "Android 13" claims), chipset, screen, RAM, battery, Google services, hardware features, every sensor with live readings, and a **storage reality test** that detects fake storage capacity. |
+| `phonelink` + `companion` | **Phone sync** over Bluetooth. *Watch Link* (on your Android phone) forwards notifications (texts, chats, calls and so on). *Phone Link* (on the watch) shows them with vibration and lets you reply (quick replies or typing), tap their buttons (such as **Decline** on a call), or dismiss them. |
 | `launcher` | **Watch Face**: a home-screen replacement with a big clock, date, battery, steps today, local weather, and up to 4 pinned apps. Swipe left (or tap ⋯) for all apps; long-press an app to pin or unpin it. |
 
 Download links (open on the watch):
 
 - Watch Inspector: `github.com/ZeroNolidge/AndroidWatch/releases/download/latest/watch-inspector.apk`
 - Watch Face: `github.com/ZeroNolidge/AndroidWatch/releases/download/latest/watch-face.apk`
+- Phone Link (watch): `github.com/ZeroNolidge/AndroidWatch/releases/download/latest/phone-link-watch.apk`
+- Watch Link (**install on your phone**): `github.com/ZeroNolidge/AndroidWatch/releases/download/latest/watch-link-phone.apk`
+
+### Setting up phone sync
+
+1. **Phone:** install *Watch Link* and open it. Work through its checklist:
+   allow Bluetooth, then allow notification access. On Android 13+ a sideloaded
+   app's notification access is a "restricted setting": if the switch is greyed
+   out, go to **Settings → Apps → Watch Link → ⋮ → Allow restricted settings**,
+   then try again.
+2. **Pair** the watch and phone in Bluetooth settings (on either device).
+3. **Watch:** install *Phone Link*, open it and pick your phone from the list.
+   The bar at the top turns green when connected.
+4. Tap **Send test notification** on the phone and reply to it from the watch.
+
+Notes:
+- Call audio stays on the phone. You can see who's calling and tap Answer or
+  Decline on the watch, but you talk on the phone (or its speaker or headset).
+- Ongoing notifications such as music players and downloads aren't forwarded.
+- The watch reconnects automatically (retrying every 5 to 60 s) and starts on boot.
+
+### Updating apps
+
+All builds are signed with the same key (`signing/sideload.keystore`), so a new
+APK installs over the old one and keeps your settings. Builds made **before**
+this was set up used random keys: uninstall those once before installing.
 
 ### Making Watch Face the home screen
 
