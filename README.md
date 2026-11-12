@@ -19,7 +19,7 @@ These watches have no data port, but they do have Wi-Fi/4G and a browser.
 **Option A: download directly on the watch (easiest)**
 
 1. On the watch, open the browser and go to
-   `github.com/ZeroNolidge/AndroidWatch/releases/latest/download/watch-inspector.apk`
+   `github.com/ZeroNolidge/AndroidWatch/releases/download/latest/watch-inspector.apk`
    (or open `github.com/ZeroNolidge/AndroidWatch/releases` and tap the APK).
 2. Open the downloaded file. When asked, allow the browser/file manager to
    **install unknown apps**, then tap **Install**.
