@@ -5,6 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,7 +20,22 @@ jobs:
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew assembleDebug --console=plain
+      - name: Collect APKs
+        run: |
+          mkdir -p dist
+          cp inspector/build/outputs/apk/debug/inspector-debug.apk dist/watch-inspector.apk
       - uses: actions/upload-artifact@v4
         with:
           name: watch-apks
-          path: "*/build/outputs/apk/debug/*.apk"
+          path: dist/*.apk
+      # Publish to a fixed "latest" release so the watch's browser can download
+      # the APK from a stable URL, with no GitHub login and no zip file.
+      - name: Publish "latest" release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest dist/*.apk --target "$GITHUB_SHA" --prerelease \
+            --title "Latest build" \
+            --notes "Built from ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}. Open this page on the watch and tap an APK to install."
