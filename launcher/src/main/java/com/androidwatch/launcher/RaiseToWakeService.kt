@@ -37,7 +37,7 @@ class RaiseToWakeService : Service(), SensorEventListener {
     private var cpuLock: PowerManager.WakeLock? = null
     private var watching = false
 
-    private val detector = RaiseDetector()
+    private var detector = RaiseDetector()
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -93,7 +93,7 @@ class RaiseToWakeService : Service(), SensorEventListener {
         val sensor = accel ?: return
         if (watching) return
         watching = true
-        detector.reset()
+        detector = RaiseDetector(sensitivity(this))
         // Keep the CPU running so sensor readings keep arriving with the screen off.
         cpuLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "watchface:raise").apply {
             setReferenceCounted(false)
@@ -132,15 +132,27 @@ class RaiseToWakeService : Service(), SensorEventListener {
         private const val SAMPLE_PERIOD_US = 50_000 // 20 Hz
 
         private const val PREF = "raise_to_wake"
+        private const val PREF_SENSITIVITY = "raise_to_wake_sensitivity"
 
-        fun isEnabled(context: Context) =
-            context.getSharedPreferences("launcher", Context.MODE_PRIVATE).getBoolean(PREF, false)
+        private fun prefs(c: Context) = c.getSharedPreferences("launcher", Context.MODE_PRIVATE)
 
-        fun setEnabled(context: Context, enabled: Boolean) {
-            context.getSharedPreferences("launcher", Context.MODE_PRIVATE).edit().putBoolean(PREF, enabled).apply()
+        fun isEnabled(context: Context) = prefs(context).getBoolean(PREF, false)
+
+        fun sensitivity(context: Context): Sensitivity =
+            runCatching { Sensitivity.valueOf(prefs(context).getString(PREF_SENSITIVITY, "NORMAL")!!) }
+                .getOrDefault(Sensitivity.NORMAL)
+
+        /** null = off. Takes effect the next time the screen turns off. */
+        fun setMode(context: Context, mode: Sensitivity?) {
+            prefs(context).edit()
+                .putBoolean(PREF, mode != null)
+                .putString(PREF_SENSITIVITY, (mode ?: sensitivity(context)).name)
+                .apply()
             val intent = Intent(context, RaiseToWakeService::class.java)
-            if (enabled) context.startForegroundService(intent) else context.stopService(intent)
+            if (mode != null) context.startForegroundService(intent) else context.stopService(intent)
         }
+
+        fun mode(context: Context): Sensitivity? = if (isEnabled(context)) sensitivity(context) else null
 
         /** Restart the service if it's enabled (e.g. after the system killed it). */
         fun ensureRunning(context: Context) {
@@ -149,15 +161,32 @@ class RaiseToWakeService : Service(), SensorEventListener {
     }
 }
 
+/** How eager raise-to-wake is. */
+enum class Sensitivity(
+    val label: String,
+    val smoothing: Float,      // how quickly the gravity estimate follows the arm
+    val downZ: Float,          // m/s²: below this, the screen isn't facing up
+    val viewZ: Float,          // m/s²: above this, it's facing up
+    val maxTiltY: Float,       // how far the top edge may tilt toward you
+    val maxRollX: Float,       // how far it may roll sideways
+    val raiseWindowMs: Long,   // max time from "down" to "looking"
+    val holdMs: Long,          // how long to hold the pose before waking
+    /** Also start a raise from any not-looking pose, not just clearly down. */
+    val fromAnyPose: Boolean,
+) {
+    NORMAL("NORMAL", 0.25f, 3.0f, 6.5f, 7.5f, 4.5f, 1_500, 200, false),
+    HIGH("HIGH", 0.40f, 4.5f, 5.0f, 8.5f, 6.0f, 2_500, 80, true),
+}
+
 /**
  * The raise gesture, separated from Android so it can be unit-tested.
  * Feed it raw accelerometer samples (m/s², device axes); returns true when the
  * screen should turn on.
  */
-class RaiseDetector {
+class RaiseDetector(private val s: Sensitivity = Sensitivity.NORMAL) {
     private val gravity = FloatArray(3)
     private var haveGravity = false
-    private var lastDownAt = 0L   // last time the screen was clearly not facing up
+    private var lastDownAt = 0L   // last time the screen was not in the viewing pose
     private var viewingSince = 0L // when the current "looking at it" pose started
     private var lastWakeAt = -COOLDOWN_MS
 
@@ -173,29 +202,30 @@ class RaiseDetector {
             gravity[0] = ax; gravity[1] = ay; gravity[2] = az
             haveGravity = true
         } else {
-            gravity[0] += SMOOTHING * (ax - gravity[0])
-            gravity[1] += SMOOTHING * (ay - gravity[1])
-            gravity[2] += SMOOTHING * (az - gravity[2])
+            gravity[0] += s.smoothing * (ax - gravity[0])
+            gravity[1] += s.smoothing * (ay - gravity[1])
+            gravity[2] += s.smoothing * (az - gravity[2])
         }
         val x = gravity[0]
         val y = gravity[1]
         val z = gravity[2]
 
         // Screen clearly not facing up: arm hanging at your side, swinging, sideways.
-        if (z < DOWN_Z) {
+        if (z < s.downZ) {
             lastDownAt = nowMs
             viewingSince = 0
             return false
         }
         // Facing up toward you: top edge level or tilted up, not rolled sideways.
-        val viewing = z > VIEW_Z && y > -2f && y < 7.5f && kotlin.math.abs(x) < 4.5f
+        val viewing = z > s.viewZ && y > -2.5f && y < s.maxTiltY && kotlin.math.abs(x) < s.maxRollX
         if (!viewing) {
+            if (s.fromAnyPose) lastDownAt = nowMs
             viewingSince = 0
             return false
         }
         if (viewingSince == 0L) viewingSince = nowMs
-        val raisedQuickly = lastDownAt > 0 && viewingSince - lastDownAt < RAISE_WINDOW_MS
-        if (raisedQuickly && nowMs - viewingSince >= HOLD_MS && nowMs - lastWakeAt > COOLDOWN_MS) {
+        val raisedQuickly = lastDownAt > 0 && viewingSince - lastDownAt < s.raiseWindowMs
+        if (raisedQuickly && nowMs - viewingSince >= s.holdMs && nowMs - lastWakeAt > COOLDOWN_MS) {
             lastWakeAt = nowMs
             lastDownAt = 0
             return true
@@ -204,11 +234,6 @@ class RaiseDetector {
     }
 
     private companion object {
-        const val SMOOTHING = 0.25f
-        const val DOWN_Z = 3f      // m/s²: below this the screen isn't facing up
-        const val VIEW_Z = 6.5f    // m/s²: above this it's facing up
-        const val RAISE_WINDOW_MS = 1_500L
-        const val HOLD_MS = 200L
         const val COOLDOWN_MS = 3_000L
     }
 }

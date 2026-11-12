@@ -250,8 +250,8 @@ private fun AppDrawer(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("✋ Raise to wake", color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
-            val on = state.raiseToWake.value
-            Text(if (on) "ON" else "OFF", color = if (on) Accent else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            val mode = state.raiseToWake.value
+            Text(mode?.label ?: "OFF", color = if (mode != null) Accent else Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
         Text(
             "Apps · long-press to pin",

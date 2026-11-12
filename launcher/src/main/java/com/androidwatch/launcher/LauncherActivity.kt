@@ -28,7 +28,8 @@ class FaceState {
     /** When step counting started, if after midnight (first day of use). */
     val stepsSince = mutableStateOf<Long?>(null)
     val stepsDebug = mutableStateOf("no step readings yet")
-    val raiseToWake = mutableStateOf(false)
+    /** null = raise to wake off. */
+    val raiseToWake = mutableStateOf<Sensitivity?>(null)
     val apps = mutableStateOf<List<AppEntry>>(emptyList())
     val favorites = mutableStateOf<List<String>>(emptyList())
     /** Bumped each time Home is pressed while we're already showing, to jump back to the face. */
@@ -75,7 +76,7 @@ class LauncherActivity : ComponentActivity() {
             onDebug = { state.stepsDebug.value = it },
         )
         state.favorites.value = favorites.get()
-        state.raiseToWake.value = RaiseToWakeService.isEnabled(this)
+        state.raiseToWake.value = RaiseToWakeService.mode(this)
         RaiseToWakeService.ensureRunning(this)
         reloadApps()
 
@@ -141,11 +142,20 @@ class LauncherActivity : ComponentActivity() {
         }
     }
 
+    /** Tap cycles OFF → NORMAL → HIGH → OFF. */
     private fun toggleRaiseToWake() {
-        val enable = !state.raiseToWake.value
-        RaiseToWakeService.setEnabled(this, enable)
-        state.raiseToWake.value = enable
-        val msg = if (enable) "Raise to wake on. Uses extra battery while the screen is off." else "Raise to wake off"
+        val next = when (state.raiseToWake.value) {
+            null -> Sensitivity.NORMAL
+            Sensitivity.NORMAL -> Sensitivity.HIGH
+            Sensitivity.HIGH -> null
+        }
+        RaiseToWakeService.setMode(this, next)
+        state.raiseToWake.value = next
+        val msg = when (next) {
+            null -> "Raise to wake off"
+            Sensitivity.NORMAL -> "Raise to wake on. Uses extra battery while the screen is off."
+            Sensitivity.HIGH -> "Raise to wake: high sensitivity. May also wake by accident now and then."
+        }
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
     }
 

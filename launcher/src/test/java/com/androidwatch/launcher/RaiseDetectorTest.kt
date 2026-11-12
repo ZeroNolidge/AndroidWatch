@@ -14,8 +14,8 @@ class RaiseDetectorTest {
     private val flat = Triple(0f, 0f, g)            // lying on a table
 
     /** Runs [samples] through a fresh detector; returns how many times it woke the screen. */
-    private fun wakes(samples: List<Triple<Float, Float, Float>>): Int {
-        val d = RaiseDetector()
+    private fun wakes(samples: List<Triple<Float, Float, Float>>, s: Sensitivity = Sensitivity.NORMAL): Int {
+        val d = RaiseDetector(s)
         return samples.withIndex().count { (i, s) -> d.onSample(s.first, s.second, s.third, 1_000L + i * 50L) }
     }
 
@@ -59,4 +59,34 @@ class RaiseDetectorTest {
             hold(hanging, 2000) + move(hanging, looking, 500) + hold(looking, 2000) +
                 move(looking, hanging, 500) + hold(hanging, 5000) + move(hanging, looking, 500) + hold(looking, 2000),
         ))
+
+    // ---- HIGH sensitivity
+
+    private val tilted = Triple(-6f, -2f, 7f) // arm resting at an angle, screen half turned away
+
+    @Test fun highWakesOnSmallerRaiseFromTiltedArm() {
+        val samples = hold(tilted, 2000) + move(tilted, looking, 600) + hold(looking, 2000)
+        assertEquals(0, wakes(samples, Sensitivity.NORMAL))
+        assertEquals(1, wakes(samples, Sensitivity.HIGH))
+    }
+
+    @Test fun highWakesOnSlowerRaise() {
+        val samples = hold(hanging, 2000) + move(hanging, looking, 4000) + hold(looking, 2000)
+        assertEquals(0, wakes(samples, Sensitivity.NORMAL))
+        assertEquals(1, wakes(samples, Sensitivity.HIGH))
+    }
+
+    @Test fun highStillIgnoresTable() = assertEquals(0, wakes(hold(flat, 60_000), Sensitivity.HIGH))
+
+    @Test fun highStillIgnoresAlreadyLooking() = assertEquals(0, wakes(hold(looking, 10_000), Sensitivity.HIGH))
+
+    @Test fun highStillIgnoresWalking() {
+        val samples = List(30 * 20) { i ->
+            val t = i * 0.05
+            val swing = 35 * PI / 180 * sin(2 * PI * t)
+            val jolt = (2.5 * sin(2 * PI * 2 * t)).toFloat()
+            Triple((-g * cos(swing)).toFloat() + jolt, (g * sin(swing)).toFloat(), 0.8f + jolt / 2)
+        }
+        assertEquals(0, wakes(samples, Sensitivity.HIGH))
+    }
 }
