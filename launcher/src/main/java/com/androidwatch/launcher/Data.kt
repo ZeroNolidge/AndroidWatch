@@ -20,12 +20,15 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Locale
 
 // ---------------------------------------------------------------- Apps
@@ -135,9 +138,17 @@ class StepTracker(
                 baseline = if (raw >= lastRaw) lastRaw else 0 // 0: rebooted overnight
                 since = 0
             } else {
-                // First use, or not used for days: we can only count from now.
-                baseline = raw
-                since = now
+                // First use, or not used for days. The counter holds steps since the
+                // watch last restarted: if that was today, they're all today's steps.
+                val bootTime = now - SystemClock.elapsedRealtime()
+                val bootDay = Instant.ofEpochMilli(bootTime).atZone(ZoneId.systemDefault()).toLocalDate()
+                if (bootDay == today) {
+                    baseline = 0
+                    since = bootTime
+                } else {
+                    baseline = raw
+                    since = now
+                }
             }
         } else if (raw < lastRaw) {
             // Counter restarted (reboot): keep what we had and count from zero.
