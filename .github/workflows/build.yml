@@ -16,8 +16,8 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
-      - uses: android-actions/setup-android@v3
+          java-version: 21
+      # The ubuntu runner ships with the Android SDK preinstalled (ANDROID_HOME).
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew assembleDebug --console=plain
       - name: Collect APKs
