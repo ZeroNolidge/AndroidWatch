@@ -24,6 +24,7 @@ jobs:
         run: |
           mkdir -p dist
           cp inspector/build/outputs/apk/debug/inspector-debug.apk dist/watch-inspector.apk
+          cp launcher/build/outputs/apk/debug/launcher-debug.apk dist/watch-face.apk
       - uses: actions/upload-artifact@v4
         with:
           name: watch-apks

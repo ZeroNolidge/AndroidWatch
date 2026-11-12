@@ -17,3 +17,4 @@ rootProject.name = "AndroidWatch"
 
 // One module per watch app. Add new apps here as siblings of :inspector.
 include(":inspector")
+include(":launcher")

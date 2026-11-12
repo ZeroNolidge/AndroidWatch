@@ -64,6 +64,7 @@ fun InspectorScreen(
                 }
             }
             items(report.sections) { SectionCard(it) }
+            item { StorageTestCard() }
             item { SectionTitle("Sensors (${sensors.size}) — tap for live data") }
             items(sensors) { SensorRow(it, sensorManager) }
             item { Spacer(Modifier.height(24.dp)) }

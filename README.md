@@ -10,7 +10,24 @@ whatever Android version the watch is really running.
 
 | Module | What it does |
 | --- | --- |
-| `inspector` | **Watch Inspector**: shows the watch's *real* Android version (catches faked "Android 13" claims), chipset, screen, RAM, battery, Google services, hardware features, and every sensor with live readings. |
+| `inspector` | **Watch Inspector**: shows the watch's *real* Android version (catches faked "Android 13" claims), chipset, screen, RAM, battery, Google services, hardware features, every sensor with live readings, and a **storage reality test** that detects fake storage capacity. |
+| `launcher` | **Watch Face**: a home-screen replacement with a big clock, date, battery, steps today, local weather, and up to 4 pinned apps. Swipe left (or tap ⋯) for all apps; long-press an app to pin or unpin it. |
+
+Download links (open on the watch):
+
+- Watch Inspector: `github.com/ZeroNolidge/AndroidWatch/releases/download/latest/watch-inspector.apk`
+- Watch Face: `github.com/ZeroNolidge/AndroidWatch/releases/download/latest/watch-face.apk`
+
+### Making Watch Face the home screen
+
+After installing it, press the watch's Home button. Android asks which home app
+to use: pick **Watch Face** and choose **Always**. To go back to the stock home
+screen, open **Settings → Apps → Default apps → Home app**. The exact menu names
+vary by watch.
+
+Weather uses your approximate location and [Open-Meteo](https://open-meteo.com)
+(free, no account). Steps come from the watch's built-in step counter and count
+from midnight, or from when the face was first opened that day.
 
 ## Installing on the watch (no USB needed)
 
@@ -56,7 +73,11 @@ The same report is also written to the log: `adb logcat -d -s WatchInspector`.
 ## Building locally
 
 Install Android Studio (or the SDK), then run `./gradlew assembleDebug`.
-The APK ends up in `inspector/build/outputs/apk/debug/inspector-debug.apk`.
+APKs end up in `<module>/build/outputs/apk/debug/`.
+
+To preview the watch face at the M99 Mini's exact screen size (412×502 px,
+200 dpi) without a watch, run `./gradlew :launcher:recordPaparazziDebug`. The
+image appears in `launcher/src/test/snapshots/images/`.
 
 ## How the version check works
 
