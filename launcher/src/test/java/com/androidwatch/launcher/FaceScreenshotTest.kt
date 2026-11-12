@@ -36,4 +36,8 @@ class FaceScreenshotTest {
     }
 
     @Test fun face() = paparazzi.snapshot { LauncherApp(state(), true, {}, {}) }
+
+    @Test fun faceNoWeather() = paparazzi.snapshot {
+        LauncherApp(state().apply { weather.value = null; weatherStatus.value = "Finding location…" }, true, {}, {})
+    }
 }

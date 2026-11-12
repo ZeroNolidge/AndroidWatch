@@ -14,7 +14,14 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.location.Location
+import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -140,12 +147,58 @@ object WeatherClient {
 
     private val usesFahrenheit get() = Locale.getDefault().country in setOf("US", "LR", "MM", "BS", "BZ", "KY", "PW")
 
-    @SuppressLint("MissingPermission") // Caller checks ACCESS_COARSE_LOCATION.
-    fun lastLocation(context: Context): Location? {
+    fun isLocationOn(context: Context): Boolean {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER, LocationManager.PASSIVE_PROVIDER)
-            .mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }
-            .maxByOrNull { it.time }
+        return if (Build.VERSION.SDK_INT >= 28) lm.isLocationEnabled
+        else lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) || lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+    }
+
+    /**
+     * Finds the watch's approximate location, calling [onResult] once (on the main
+     * thread) with the location, or null after ~30 s. Tries Google's fused location
+     * first (Wi-Fi/cell based, works indoors), then the plain Android providers.
+     */
+    @SuppressLint("MissingPermission") // Caller checks ACCESS_COARSE_LOCATION.
+    fun findLocation(context: Context, onResult: (Location?) -> Unit) {
+        val main = Handler(Looper.getMainLooper())
+        var done = false
+        fun finish(loc: Location?) {
+            if (done) return
+            done = true
+            onResult(loc)
+        }
+        main.postDelayed({ finish(null) }, 30_000)
+
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        fun androidFallback() {
+            val recent = listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER, LocationManager.PASSIVE_PROVIDER)
+                .mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }
+                .maxByOrNull { it.time }
+            if (recent != null) return finish(recent)
+            val listener = object : LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    lm.removeUpdates(this)
+                    finish(location)
+                }
+                @Deprecated("Required on Android 8-10")
+                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+                override fun onProviderEnabled(provider: String) {}
+                override fun onProviderDisabled(provider: String) {}
+            }
+            listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
+                .filter { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
+                .forEach { runCatching { lm.requestLocationUpdates(it, 0L, 0f, listener, Looper.getMainLooper()) } }
+            main.postDelayed({ lm.removeUpdates(listener) }, 30_000)
+        }
+
+        try {
+            LocationServices.getFusedLocationProviderClient(context)
+                .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                .addOnSuccessListener { loc -> if (loc != null) finish(loc) else androidFallback() }
+                .addOnFailureListener { androidFallback() }
+        } catch (_: Exception) {
+            androidFallback() // Play Services missing (e.g. some other watch)
+        }
     }
 
     /** Blocking network call: run off the main thread. */

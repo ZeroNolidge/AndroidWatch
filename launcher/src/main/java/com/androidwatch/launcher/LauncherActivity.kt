@@ -22,6 +22,8 @@ class FaceState {
     val charging = mutableStateOf(false)
     val steps = mutableStateOf<Int?>(null)
     val weather = mutableStateOf<Weather?>(null)
+    /** Why there is no weather yet (shown instead of it), or null. */
+    val weatherStatus = mutableStateOf<String?>("Weather loading…")
     val apps = mutableStateOf<List<AppEntry>>(emptyList())
     val favorites = mutableStateOf<List<String>>(emptyList())
     /** Bumped each time Home is pressed while we're already showing, to jump back to the face. */
@@ -87,6 +89,7 @@ class LauncherActivity : ComponentActivity() {
                 stepsAvailable = steps.available,
                 onLaunch = { Apps.launch(this, it) },
                 onToggleFavorite = ::toggleFavorite,
+                onWeatherTapped = ::onWeatherTapped,
             )
         }
     }
@@ -133,13 +136,38 @@ class LauncherActivity : ComponentActivity() {
     private fun refreshWeather(force: Boolean) {
         val now = System.currentTimeMillis()
         if (!force && now - lastWeatherFetch < 30 * 60_000) return
-        if (!hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) return
+        fun problem(msg: String) {
+            lastWeatherFetch = 0 // retry next time the face is shown
+            if (state.weather.value == null) state.weatherStatus.value = msg
+        }
+        if (!hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) return problem("Tap to allow location for weather")
+        if (!WeatherClient.isLocationOn(this)) return problem("Location is off · tap to turn on")
         lastWeatherFetch = now
-        background.execute {
-            val location = WeatherClient.lastLocation(this) ?: return@execute
-            val weather = runCatching { WeatherClient.fetch(location.latitude, location.longitude) }.getOrNull()
-            if (weather != null) runOnUiThread { state.weather.value = weather }
-            else lastWeatherFetch = 0 // retry next time the face is shown
+        if (state.weather.value == null) state.weatherStatus.value = "Finding location…"
+        WeatherClient.findLocation(this) { location ->
+            if (location == null) return@findLocation problem("No location yet · tap to retry")
+            background.execute {
+                val weather = runCatching { WeatherClient.fetch(location.latitude, location.longitude) }.getOrNull()
+                runOnUiThread {
+                    if (weather != null) {
+                        state.weather.value = weather
+                        state.weatherStatus.value = null
+                    } else {
+                        problem("Weather needs internet · tap to retry")
+                    }
+                }
+            }
+        }
+    }
+
+    /** Tapping the weather status fixes whatever is blocking it. */
+    private fun onWeatherTapped() {
+        when {
+            !hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ->
+                requestPermissions.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION))
+            !WeatherClient.isLocationOn(this) ->
+                runCatching { startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
+            else -> refreshWeather(force = true)
         }
     }
 }

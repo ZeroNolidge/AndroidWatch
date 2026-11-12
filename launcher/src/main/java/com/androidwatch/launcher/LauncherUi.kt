@@ -59,6 +59,7 @@ fun LauncherApp(
     stepsAvailable: Boolean,
     onLaunch: (AppEntry) -> Unit,
     onToggleFavorite: (AppEntry) -> Unit,
+    onWeatherTapped: () -> Unit = {},
 ) {
     val pager = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
@@ -80,6 +81,7 @@ fun LauncherApp(
                     stepsAvailable = stepsAvailable,
                     onLaunch = onLaunch,
                     onOpenApps = { scope.launch { pager.animateScrollToPage(1) } },
+                    onWeatherTapped = onWeatherTapped,
                 )
                 else -> AppDrawer(state, onLaunch, onToggleFavorite)
             }
@@ -95,6 +97,7 @@ private fun WatchFace(
     stepsAvailable: Boolean,
     onLaunch: (AppEntry) -> Unit,
     onOpenApps: () -> Unit,
+    onWeatherTapped: () -> Unit,
 ) {
     val context = LocalContext.current
     var now by remember { mutableStateOf(LocalDateTime.now()) }
@@ -109,19 +112,37 @@ private fun WatchFace(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            // Extra inset: the watch screen has rounded corners that clip anything near them.
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Status row: battery left, weather right.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        // Status line, centred so the rounded corners can't cut it off.
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             val battery = state.battery.intValue
-            Text(
-                if (battery < 0) "" else (if (state.charging.value) "⚡$battery%" else "$battery%"),
-                color = if (battery in 0..15 && !state.charging.value) Color(0xFFEF5350) else Muted,
-                fontSize = 14.sp,
-            )
-            state.weather.value?.let {
-                Text("${it.icon} ${it.temperature}${it.unit}", color = Muted, fontSize = 14.sp)
+            if (battery >= 0) {
+                Text(
+                    (if (state.charging.value) "⚡" else "🔋") + "$battery%",
+                    color = if (battery <= 15 && !state.charging.value) Color(0xFFEF5350) else Color.White,
+                    fontSize = 15.sp,
+                )
+            }
+            val weather = state.weather.value
+            if (weather != null) {
+                Text(
+                    "${weather.icon} ${weather.temperature}${weather.unit}",
+                    color = Color.White, fontSize = 15.sp,
+                    modifier = Modifier.clickable(onClick = onWeatherTapped),
+                )
+            }
+        }
+        if (state.weather.value == null) {
+            state.weatherStatus.value?.let {
+                Text(
+                    it, color = Muted, fontSize = 11.sp, textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .clickable(onClick = onWeatherTapped)
+                        .padding(top = 2.dp),
+                )
             }
         }
 
@@ -160,7 +181,9 @@ private fun WatchFace(
         // Favourite apps (long-press an app in the drawer to pin it here).
         val favApps = state.favorites.value.mapNotNull { pkg -> state.apps.value.firstOrNull { it.packageName == pkg } }
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
