@@ -81,6 +81,10 @@ class MainActivity : ComponentActivity() {
         fun reportText(report: Report, sensors: List<Sensor>): String = buildString {
             appendLine("=== Watch Inspector report ===")
             appendLine(report.verdict.summary)
+            if (CellularLive.summary.isNotBlank()) {
+                appendLine()
+                append(CellularLive.summary)
+            }
             for (section in report.sections) {
                 appendLine()
                 appendLine("## ${section.title}")

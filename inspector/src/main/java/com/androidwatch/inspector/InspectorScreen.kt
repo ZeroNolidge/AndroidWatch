@@ -63,6 +63,7 @@ fun InspectorScreen(
                     SmallButton("Share", onShare, Modifier.weight(1f))
                 }
             }
+            if (android.os.Build.VERSION.SDK_INT >= 24) item { CellularCard() }
             items(report.sections) { SectionCard(it) }
             item { StorageTestCard() }
             item { SectionTitle("Sensors (${sensors.size}) — tap for live data") }
