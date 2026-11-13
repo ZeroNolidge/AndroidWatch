@@ -33,6 +33,7 @@ class MainActivity : ComponentActivity() {
         // Also log the report so it can be read with: adb logcat -s WatchInspector
         reportText(report, sensors).lines().forEach { Log.i(TAG, it) }
 
+        TextZoom.load(this)
         setContent {
             InspectorScreen(
                 report = report,

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -47,7 +48,8 @@ fun InspectorScreen(
     onSave: () -> Unit,
     onShare: () -> Unit,
 ) {
-    MaterialTheme(colorScheme = darkColorScheme()) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    MaterialTheme(colorScheme = darkColorScheme()) { ZoomedText {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -56,6 +58,9 @@ fun InspectorScreen(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             item { Spacer(Modifier.height(8.dp)) }
+            item {
+                ZoomButtons(context, Modifier.fillMaxWidth().padding(bottom = 2.dp))
+            }
             item { VerdictCard(report.verdict) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
@@ -70,7 +75,7 @@ fun InspectorScreen(
             items(sensors) { SensorRow(it, sensorManager) }
             item { Spacer(Modifier.height(24.dp)) }
         }
-    }
+    } }
 }
 
 @Composable
@@ -100,7 +105,7 @@ private fun VerdictCard(v: Verdict) {
 private fun SmallButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(36.dp),
+        modifier = modifier.heightIn(min = 36.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E88E5)),
     ) { Text(label, fontSize = 12.sp, maxLines = 1) }
 }

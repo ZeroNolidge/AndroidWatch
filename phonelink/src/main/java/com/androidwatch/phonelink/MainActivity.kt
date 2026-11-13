@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -74,9 +75,10 @@ class MainActivity : ComponentActivity() {
         if (needed.isNotEmpty()) askPermissions.launch(needed.toTypedArray())
         else if (Prefs.phoneAddress(this) != null) LinkService.start(this)
 
+        TextZoom.load(this)
         setContent {
             refresh.intValue
-            MaterialTheme(colorScheme = darkColorScheme()) { App() }
+            MaterialTheme(colorScheme = darkColorScheme()) { ZoomedText { App() } }
         }
     }
 
@@ -102,6 +104,7 @@ class MainActivity : ComponentActivity() {
                 })
             } else {
                 StatusBar(onClick = { picking = true })
+                ZoomButtons(this@MainActivity, Modifier.padding(bottom = 4.dp))
                 NotificationList()
             }
         }
@@ -274,7 +277,7 @@ private fun NotificationCard(n: PhoneNotification, startExpanded: Boolean = fals
 private fun SmallButton(label: String, highlight: Boolean, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier.height(34.dp),
+        modifier = Modifier.heightIn(min = 34.dp),
         contentPadding = ButtonDefaults.TextButtonContentPadding,
         colors = ButtonDefaults.buttonColors(
             containerColor = if (highlight) Color(0xFF7B1FA2) else Color(0xFF333333),

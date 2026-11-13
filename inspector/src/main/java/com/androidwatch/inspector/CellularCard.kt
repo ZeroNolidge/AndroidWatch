@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -251,7 +252,7 @@ fun CellularCard() {
 private fun SmallAction(label: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier.height(34.dp),
+        modifier = Modifier.heightIn(min = 34.dp),
         contentPadding = ButtonDefaults.TextButtonContentPadding,
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E88E5)),
     ) { Text(label, fontSize = 11.sp, maxLines = 1) }

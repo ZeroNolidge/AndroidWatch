@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -239,7 +240,7 @@ fun StorageTestCard() {
                         else -> t.cancelled = true
                     }
                 },
-                modifier = Modifier.height(36.dp),
+                modifier = Modifier.heightIn(min = 36.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (running) Color(0xFFEF5350) else Color(0xFF1E88E5),
                 ),

@@ -43,4 +43,18 @@ class ListScreenshotTest {
             }
         }
     }
+
+    @Test fun listZoomed() {
+        TextZoom.scale.floatValue = 2f
+        paparazzi.snapshot {
+            MaterialTheme(colorScheme = darkColorScheme()) {
+                ZoomedText {
+                    Box(Modifier.fillMaxSize().background(Color.Black).padding(horizontal = 8.dp)) {
+                        NotificationCards(sample, expandFirst = true)
+                    }
+                }
+            }
+        }
+        TextZoom.scale.floatValue = 1f
+    }
 }
