@@ -40,4 +40,24 @@ class FaceScreenshotTest {
     @Test fun faceNoWeather() = paparazzi.snapshot {
         LauncherApp(state().apply { weather.value = null; weatherStatus.value = "Finding location…" }, true, {}, {})
     }
+
+}
+
+/** The M99: 480×480 px, rendered at the corrected density (232 dpi ≈ 330 dp wide). M99 has no step counter. */
+class M99FaceScreenshotTest {
+    @get:Rule
+    val paparazzi = Paparazzi(
+        deviceConfig = DeviceConfig(
+            screenWidth = 480, screenHeight = 480, xdpi = 232, ydpi = 232,
+            density = Density.create(232), orientation = ScreenOrientation.PORTRAIT,
+        ),
+    )
+
+    @Test fun face() = paparazzi.snapshot {
+        val s = FaceState().apply {
+            battery.intValue = 88
+            weather.value = Weather(14, "°F", "Cloudy", "☁️")
+        }
+        LauncherApp(s, stepsAvailable = false, onLaunch = {}, onToggleFavorite = {})
+    }
 }

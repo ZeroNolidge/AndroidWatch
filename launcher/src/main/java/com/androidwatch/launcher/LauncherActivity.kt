@@ -38,6 +38,10 @@ class FaceState {
 
 class LauncherActivity : ComponentActivity() {
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(WatchDensity.wrap(newBase))
+    }
+
     private val state = FaceState()
     private val background = Executors.newSingleThreadExecutor()
     private val prefs by lazy { getSharedPreferences("launcher", MODE_PRIVATE) }

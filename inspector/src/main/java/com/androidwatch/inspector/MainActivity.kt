@@ -18,6 +18,10 @@ import java.io.File
 
 class MainActivity : ComponentActivity() {
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(WatchDensity.wrap(newBase))
+    }
+
     private val requestPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 

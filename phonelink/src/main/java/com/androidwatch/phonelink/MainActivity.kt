@@ -59,6 +59,10 @@ private val CardBg = Color(0xFF1A1A1A)
 
 class MainActivity : ComponentActivity() {
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(WatchDensity.wrap(newBase))
+    }
+
     private val refresh = mutableIntStateOf(0)
     private val askPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
