@@ -30,6 +30,8 @@
             </intent-filter>
         </service>
 
+        <activity android:name=".ClaudeSetupActivity" android:exported="false" android:label="Claude for your watch" />
+
         <receiver android:name=".TestReplyReceiver" android:exported="false" />
     </application>
 </manifest>

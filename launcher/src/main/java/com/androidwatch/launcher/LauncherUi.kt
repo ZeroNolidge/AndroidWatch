@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -61,6 +62,7 @@ fun LauncherApp(
     onToggleFavorite: (AppEntry) -> Unit,
     onWeatherTapped: () -> Unit = {},
     onToggleRaiseToWake: () -> Unit = {},
+    onOpenClaude: () -> Unit = {},
 ) {
     val pager = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
@@ -83,6 +85,7 @@ fun LauncherApp(
                     onLaunch = onLaunch,
                     onOpenApps = { scope.launch { pager.animateScrollToPage(1) } },
                     onWeatherTapped = onWeatherTapped,
+                    onOpenClaude = onOpenClaude,
                 )
                 else -> AppDrawer(state, onLaunch, onToggleFavorite, onToggleRaiseToWake)
             }
@@ -99,6 +102,7 @@ private fun WatchFace(
     onLaunch: (AppEntry) -> Unit,
     onOpenApps: () -> Unit,
     onWeatherTapped: () -> Unit,
+    onOpenClaude: () -> Unit,
 ) {
     val context = LocalContext.current
     var now by remember { mutableStateOf(LocalDateTime.now()) }
@@ -188,6 +192,9 @@ private fun WatchFace(
                 Text("counting since $time", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 3.dp))
             }
         }
+
+        Spacer(Modifier.height(10.dp))
+        ClaudeBubble(state, onOpenClaude)
 
         Spacer(Modifier.weight(1f))
 
@@ -289,6 +296,34 @@ private fun AppDrawer(
                     )
                 }
             }
+        }
+    }
+}
+
+/** "✳ Claude" chip: last reply (or a prompt to ask), with an unread count. Tap to chat. */
+@Composable
+private fun ClaudeBubble(state: FaceState, onClick: () -> Unit) {
+    val unread = state.claudeUnread.intValue
+    Row(
+        Modifier
+            .padding(horizontal = 8.dp)
+            .background(Color(0xFF2A1D18), RoundedCornerShape(50))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("✳", color = Color(0xFFD97757), fontSize = 15.sp)
+        Spacer(Modifier.width(6.dp))
+        Text(
+            state.claudeLast.value ?: "Ask Claude",
+            color = Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (unread > 0) {
+            Spacer(Modifier.width(6.dp))
+            Box(
+                Modifier.background(Color(0xFFD97757), RoundedCornerShape(50)).padding(horizontal = 6.dp),
+            ) { Text("$unread", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
         }
     }
 }

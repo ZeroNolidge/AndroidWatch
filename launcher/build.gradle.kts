@@ -14,8 +14,8 @@ android {
         // Both watches are Android 8.1 or newer.
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.6"
+        versionCode = 9
+        versionName = "1.7"
     }
 
     buildTypes {
@@ -45,6 +45,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
     // Play Services pulls in an old Fragment library; this newer one is needed by registerForActivityResult.
     implementation("androidx.fragment:fragment-ktx:1.8.5")
+    // QR scanner for the Claude setup code.
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 }
 
 dependencies {

@@ -10,6 +10,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Claude chat: scan the setup QR code. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <!-- Android 11+ only lets us list other apps if we say which ones we look for. -->
     <queries>
@@ -39,6 +43,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".claude.ClaudeActivity"
+            android:exported="false"
+            android:label="Claude"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Checks the GitHub inbox for Claude's replies for an hour after you send a message. -->
+        <service
+            android:name=".claude.ClaudePollService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Waiting for a reply to a message the user just sent" />
+        </service>
+
         <service
             android:name=".RaiseToWakeService"
             android:exported="false"

@@ -39,6 +39,31 @@ Notes:
 - Ongoing notifications such as music players and downloads aren't forwarded.
 - The watch reconnects automatically (retrying every 5 to 60 s) and starts on boot.
 
+### Claude chat on the watch
+
+The Watch Face has a **✳ Claude** bubble. Tap it to send a request to a Claude
+Code project (typed or dictated). The watch buzzes when Claude replies. You don't
+need to open the Claude app or pick the project each time.
+
+How it works: the watch *fires a routine* (a saved Claude Code task with an API
+trigger, one per project) at `api.anthropic.com/v1/claude_code/routines/<id>/fire`.
+That starts a cloud session on the project. The routine's prompt tells Claude to
+reply as comments on a GitHub issue (the "watch inbox"), which the watch checks
+every minute or so.
+
+Setup (once per project): on the phone, open **Watch Link → Claude for your
+watch** and follow the steps (repo, inbox issue, routine, trigger token). It
+shows a QR code; on the watch tap the Claude bubble → **Scan setup QR code**.
+
+Notes:
+- Needs a Claude Pro/Max/Team/Enterprise plan. Routine API triggers are
+  experimental, limited to 30 messages/hour per routine and 100/hour per account.
+- Each message starts a fresh session. Claude re-reads the inbox issue for context.
+- On a public repo the inbox issue (your requests and the replies) is public.
+- Without a GitHub token the watch can check the inbox 60 times/hour.
+- The routine token can only start that one routine. If the watch is lost,
+  generate a new token (the old one stops working).
+
 ### Updating apps
 
 All builds are signed with the same key (`signing/sideload.keystore`), so a new

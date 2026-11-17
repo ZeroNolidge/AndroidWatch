@@ -33,6 +33,8 @@ class FaceScreenshotTest {
         apps.value = listOf("Phone", "Messages", "Camera", "Maps", "Settings", "Play Store", "Chrome", "Watch Inspector", "Clock")
             .mapIndexed { i, n -> AppEntry(n, "pkg.$i", "a", icon(colors[i])) }
         favorites.value = listOf("pkg.0", "pkg.1", "pkg.3")
+        claudeLast.value = "✅ Fixed the weather fallback and pushed to main"
+        claudeUnread.intValue = 2
     }
 
     @Test fun face() = paparazzi.snapshot { LauncherApp(state(), true, {}, {}) }
@@ -57,6 +59,7 @@ class M99FaceScreenshotTest {
         val s = FaceState().apply {
             battery.intValue = 88
             weather.value = Weather(14, "°F", "Cloudy", "☁️")
+            claudeLast.value = "🕐 Working on: add a dark theme"
         }
         LauncherApp(s, stepsAvailable = false, onLaunch = {}, onToggleFavorite = {})
     }

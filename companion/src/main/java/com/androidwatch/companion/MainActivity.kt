@@ -125,6 +125,19 @@ class MainActivity : ComponentActivity() {
                     else askPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }) { Text(if (notifOk) "Send test notification" else "Allow notifications first") }
             }
+
+            Card {
+                Text("✳ Claude for your watch", color = Color(0xFFD97757), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Send requests to a Claude Code project from the watch and get replies there. " +
+                        "This doesn't need the Bluetooth link above.",
+                    color = Color.LightGray, fontSize = 13.sp,
+                )
+                Spacer(Modifier.height(6.dp))
+                Button(onClick = { startActivity(Intent(this@MainActivity, ClaudeSetupActivity::class.java)) }) {
+                    Text("Set up a project")
+                }
+            }
         }
     }
 

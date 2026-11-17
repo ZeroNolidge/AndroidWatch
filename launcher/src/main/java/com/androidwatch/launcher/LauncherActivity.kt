@@ -30,6 +30,9 @@ class FaceState {
     val stepsDebug = mutableStateOf("no step readings yet")
     /** null = raise to wake off. */
     val raiseToWake = mutableStateOf<Sensitivity?>(null)
+    /** Claude chat bubble: null text = not set up yet. */
+    val claudeLast = mutableStateOf<String?>(null)
+    val claudeUnread = mutableIntStateOf(0)
     val apps = mutableStateOf<List<AppEntry>>(emptyList())
     val favorites = mutableStateOf<List<String>>(emptyList())
     /** Bumped each time Home is pressed while we're already showing, to jump back to the face. */
@@ -111,6 +114,7 @@ class LauncherActivity : ComponentActivity() {
                 onToggleFavorite = ::toggleFavorite,
                 onWeatherTapped = ::onWeatherTapped,
                 onToggleRaiseToWake = ::toggleRaiseToWake,
+                onOpenClaude = { startActivity(Intent(this, com.androidwatch.launcher.claude.ClaudeActivity::class.java)) },
             )
         }
     }
@@ -125,6 +129,7 @@ class LauncherActivity : ComponentActivity() {
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         steps.start()
         refreshWeather(force = false)
+        refreshClaude()
     }
 
     override fun onPause() {
@@ -144,6 +149,18 @@ class LauncherActivity : ComponentActivity() {
             val apps = runCatching { Apps.load(this) }.getOrDefault(emptyList())
             runOnUiThread { state.apps.value = apps }
         }
+    }
+
+    private fun refreshClaude() {
+        val p = com.androidwatch.launcher.claude.ClaudeProjects.current(this)
+        if (p == null) {
+            state.claudeLast.value = null
+            state.claudeUnread.intValue = 0
+            return
+        }
+        val last = com.androidwatch.launcher.claude.ClaudeInbox.messages(this, p).lastOrNull { !it.fromMe }
+        state.claudeLast.value = last?.text?.lineSequence()?.firstOrNull { it.isNotBlank() } ?: "Ask ${p.name}…"
+        state.claudeUnread.intValue = com.androidwatch.launcher.claude.ClaudeInbox.unread(this, p)
     }
 
     /** Tap cycles OFF → NORMAL → HIGH → OFF. */
