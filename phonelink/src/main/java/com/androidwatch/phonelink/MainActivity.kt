@@ -51,6 +51,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 
 private val Good = Color(0xFF66BB6A)
 private val Accent = Color(0xFFCE93D8)
@@ -255,22 +259,36 @@ private fun NotificationCard(n: PhoneNotification, startExpanded: Boolean = fals
                     }
                 }
                 Spacer(Modifier.height(4.dp))
+                val keyboardOpen = rememberKeyboardVisible()
+                val hideKeyboard = rememberHideKeyboard()
+                val sendDraft = {
+                    if (draft.isNotBlank() && LinkService.reply(context, n.key, action.index, draft.trim())) {
+                        hideKeyboard()
+                        draft = ""
+                        replyingTo = null
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // While the keyboard covers the screen, ⌄ hides it again.
+                    if (keyboardOpen) {
+                        SmallButton("⌄", highlight = false) { hideKeyboard() }
+                        Spacer(Modifier.width(4.dp))
+                    }
                     OutlinedTextField(
                         value = draft,
                         onValueChange = { draft = it },
                         placeholder = { Text("Type…", fontSize = 12.sp) },
                         textStyle = MaterialTheme.typography.bodySmall,
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Sentences,
+                            imeAction = ImeAction.Send,
+                        ),
+                        keyboardActions = KeyboardActions(onSend = { sendDraft() }),
                         modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(4.dp))
-                    SmallButton("Send", highlight = true) {
-                        if (draft.isNotBlank() && LinkService.reply(context, n.key, action.index, draft.trim())) {
-                            draft = ""
-                            replyingTo = null
-                        }
-                    }
+                    SmallButton("Send", highlight = true) { sendDraft() }
                 }
             }
         }

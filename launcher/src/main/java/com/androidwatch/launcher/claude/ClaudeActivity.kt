@@ -55,6 +55,12 @@ import com.androidwatch.launcher.TextZoom
 import com.androidwatch.launcher.WatchDensity
 import com.androidwatch.launcher.ZoomButtons
 import com.androidwatch.launcher.ZoomedText
+import com.androidwatch.launcher.rememberHideKeyboard
+import com.androidwatch.launcher.rememberKeyboardVisible
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.Dispatchers
@@ -209,49 +215,78 @@ class ClaudeActivity : ComponentActivity() {
         }
         LaunchedEffect(messages.size) { if (messages.isNotEmpty()) listState.scrollToItem(messages.size) }
 
+        val keyboardOpen = rememberKeyboardVisible()
+        val hideKeyboard = rememberHideKeyboard()
+        val sendDraft = {
+            if (draft.isNotBlank()) {
+                hideKeyboard()
+                send(project, draft.trim())
+            }
+        }
+
         Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-            // Header: project (tap to switch) + text size.
-            Row(
-                Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "✳ ${project.name} ▾",
-                    color = ClaudeOrange, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).clickable { screen = Screen.PROJECTS },
-                )
-                ZoomButtons(this@ClaudeActivity)
-            }
-            error?.let { Text(it, color = Bad, fontSize = 10.sp) }
-
-            LazyColumn(state = listState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (messages.isEmpty()) {
-                    item {
-                        Text(
-                            "Ask Claude to do something in ${project.name}. Replies appear here, and the watch " +
-                                "buzzes when one arrives (you can leave this screen).",
-                            color = Muted, fontSize = 11.sp, lineHeight = 14.sp,
-                        )
-                    }
+            if (keyboardOpen) {
+                // The keyboard covers most of a watch screen: show only the text being typed.
+                Spacer(Modifier.weight(1f))
+            } else {
+                // Header: project (tap to switch) + text size.
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "✳ ${project.name} ▾",
+                        color = ClaudeOrange, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).clickable { screen = Screen.PROJECTS },
+                    )
+                    ZoomButtons(this@ClaudeActivity)
                 }
-                items(messages, key = { it.id }) { MessageBubble(project, it) }
+                error?.let { Text(it, color = Bad, fontSize = 10.sp) }
+
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (messages.isEmpty()) {
+                        item {
+                            Text(
+                                "Ask Claude to do something in ${project.name}. Replies appear here, and the watch " +
+                                    "buzzes when one arrives (you can leave this screen).",
+                                color = Muted, fontSize = 11.sp, lineHeight = 14.sp,
+                            )
+                        }
+                    }
+                    items(messages, key = { it.id }) { MessageBubble(project, it) }
+                }
             }
 
-            // Input row.
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Input row. While typing: ⌄ hides the keyboard, ➤ sends (so does the keyboard's Send key).
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (keyboardOpen) {
+                    RoundKey("⌄", color = Color(0xFF444444)) { hideKeyboard() }
+                    Spacer(Modifier.width(4.dp))
+                }
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { draft = it },
                     placeholder = { Text("Ask Claude…", fontSize = 12.sp) },
                     textStyle = MaterialTheme.typography.bodySmall,
-                    maxLines = 3,
+                    maxLines = if (keyboardOpen) 2 else 3,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Send,
+                    ),
+                    keyboardActions = KeyboardActions(onSend = { sendDraft() }),
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(4.dp))
-                RoundKey("🎤") { startDictation() }
-                Spacer(Modifier.width(4.dp))
-                RoundKey("➤", enabled = draft.isNotBlank()) { send(project, draft.trim()) }
+                if (!keyboardOpen) {
+                    RoundKey("🎤") { startDictation() }
+                    Spacer(Modifier.width(4.dp))
+                }
+                RoundKey("➤", enabled = draft.isNotBlank()) { sendDraft() }
             }
         }
     }
@@ -392,11 +427,11 @@ class ClaudeActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun RoundKey(label: String, enabled: Boolean = true, onClick: () -> Unit) {
+    private fun RoundKey(label: String, enabled: Boolean = true, color: Color = ClaudeOrange, onClick: () -> Unit) {
         Box(
             Modifier
                 .size(40.dp)
-                .background(if (enabled) ClaudeOrange else Color(0xFF333333), RoundedCornerShape(50))
+                .background(if (enabled) color else Color(0xFF333333), RoundedCornerShape(50))
                 .clickable(enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) { Text(label, color = Color.White, fontSize = 16.sp) }
