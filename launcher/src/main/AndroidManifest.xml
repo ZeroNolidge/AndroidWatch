@@ -43,6 +43,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- claude.ai fitted inside a round screen; has its own app-list icon. -->
+        <activity
+            android:name=".claude.ClaudeWebActivity"
+            android:exported="true"
+            android:label="Claude Web"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.androidwatch.launcher.claudeweb"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".claude.ClaudeActivity"
             android:exported="false"

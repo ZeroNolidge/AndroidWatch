@@ -188,8 +188,10 @@ class ClaudeActivity : ComponentActivity() {
         }
     }
 
+    /** Session and GitHub links open in the round-friendly Claude Web browser. */
     private fun open(url: String) {
-        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        runCatching { ClaudeWebActivity.open(this, url) }
+            .onFailure { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } }
     }
 
     // ------------------------------------------------------------ screens
@@ -252,6 +254,10 @@ class ClaudeActivity : ComponentActivity() {
                         color = ClaudeOrange, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f).clickable { screen = Screen.PROJECTS },
+                    )
+                    Text(
+                        "🌐", fontSize = 16.sp,
+                        modifier = Modifier.clickable { ClaudeWebActivity.open(this@ClaudeActivity) }.padding(horizontal = 6.dp),
                     )
                     ZoomButtons(this@ClaudeActivity)
                 }
