@@ -65,6 +65,10 @@ class ClaudeWebActivity : ComponentActivity() {
     private var textZoom by mutableIntStateOf(100)
     private var pageTitle by mutableStateOf("Claude")
     private var loading by mutableStateOf(false)
+    private var loadProgress by mutableIntStateOf(0)
+    /** Why the page isn't showing, if we know. */
+    private var problem by mutableStateOf<String?>(null)
+    private var currentUrl by mutableStateOf(HOME)
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(WatchDensity.wrap(newBase))
@@ -88,14 +92,31 @@ class ClaudeWebActivity : ComponentActivity() {
             setBackgroundColor(android.graphics.Color.BLACK)
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = false
-                override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) { loading = true }
+                override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                    loading = true
+                    problem = null
+                    url?.let { currentUrl = it }
+                }
                 override fun onPageFinished(view: WebView, url: String?) {
                     loading = false
                     CookieManager.getInstance().flush() // stay signed in
                 }
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                    if (request.isForMainFrame) problem = "Can't load the page: ${error.description}"
+                }
+                override fun onReceivedHttpError(
+                    view: WebView, request: WebResourceRequest, response: android.webkit.WebResourceResponse,
+                ) {
+                    if (request.isForMainFrame) problem = "claude.ai answered with error ${response.statusCode}"
+                }
+                override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                    problem = "The page crashed. Tap ⟳ to reload."
+                    return true // don't take the whole app down
+                }
             }
             webChromeClient = object : WebChromeClient() {
                 override fun onReceivedTitle(view: WebView, t: String?) { pageTitle = t?.ifBlank { null } ?: "Claude" }
+                override fun onProgressChanged(view: WebView, newProgress: Int) { loadProgress = newProgress }
             }
         }
         CookieManager.getInstance().setAcceptCookie(true)
@@ -143,7 +164,10 @@ class ClaudeWebActivity : ComponentActivity() {
         if (!round) {
             // Square watch: page fills the screen, controls in a slim bar.
             Column(Modifier.fillMaxSize().background(Color.Black), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.fillMaxWidth().weight(1f)) { AndroidView({ web }, Modifier.fillMaxSize()) }
+                Box(Modifier.fillMaxWidth().weight(1f)) {
+                    AndroidView({ web }, Modifier.fillMaxSize())
+                    StatusOverlay()
+                }
                 Controls(key = 30.dp, gap = 6.dp, withFit = false, modifier = Modifier.padding(vertical = 4.dp))
             }
             return
@@ -153,10 +177,13 @@ class ClaudeWebActivity : ComponentActivity() {
         val strip = ((d - d * fit.fraction) / 2f).dp // curved strip left above/below the page
         val key = 26.dp
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            Box(Modifier.align(Alignment.Center).size(side)) { AndroidView({ web }, Modifier.fillMaxSize()) }
+            Box(Modifier.align(Alignment.Center).size(side)) {
+                AndroidView({ web }, Modifier.fillMaxSize())
+                StatusOverlay()
+            }
             if (strip > 30.dp) {
                 Text(
-                    if (loading) "Loading…" else pageTitle,
+                    if (loading) "Loading $loadProgress%" else pageTitle,
                     color = Color(0xFFD97757), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.align(Alignment.TopCenter)
@@ -168,6 +195,26 @@ class ClaudeWebActivity : ComponentActivity() {
             Controls(
                 key = key, gap = 4.dp, withFit = true,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bottom),
+            )
+        }
+    }
+
+    /** Shown over the page while it loads, or if it fails: says what's happening, offers Chrome. */
+    @Composable
+    private fun StatusOverlay() {
+        val msg = problem ?: if (loading && loadProgress < 100) "Loading claude.ai… $loadProgress%" else return
+        Column(
+            Modifier.fillMaxSize().background(Color(0xEE000000)).padding(10.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(msg, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center)
+            Text(
+                "Open in Chrome instead ↗",
+                color = Color(0xFFD97757), fontSize = 12.sp,
+                modifier = Modifier.padding(top = 10.dp).clickable {
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(currentUrl))) }
+                },
             )
         }
     }
