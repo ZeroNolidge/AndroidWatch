@@ -62,17 +62,20 @@ object DeviceInfo {
         31 to "android.app.ForegroundServiceStartNotAllowedException",
         33 to "android.window.OnBackInvokedDispatcher",
         34 to "android.credentials.CredentialManager",
-        35 to "android.os.ProfilingManager",
+        // Two Android 15 classes: either one counts, so one odd build can't trigger a false "faked".
+        35 to "android.os.ProfilingManager|android.app.ApplicationStartInfo",
     )
 
     private fun probeApiLevel(): Int {
         var highest = 21
         for ((level, className) in apiProbes) {
-            val exists = try {
-                Class.forName(className, false, DeviceInfo::class.java.classLoader)
-                true
-            } catch (_: Throwable) {
-                false
+            val exists = className.split('|').any { name ->
+                try {
+                    Class.forName(name, false, DeviceInfo::class.java.classLoader)
+                    true
+                } catch (_: Throwable) {
+                    false
+                }
             }
             if (exists) highest = level
         }

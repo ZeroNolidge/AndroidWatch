@@ -171,9 +171,14 @@ fun CellularCard() {
 
     LaunchedEffect(permissionTick) {
         while (true) {
+            // Android 11+ only reveals the network type with phone-state permission.
             @Suppress("DEPRECATION")
-            network = runCatching { networkTypeName(tm.networkType) }.getOrDefault("?")
+            network = runCatching { networkTypeName(tm.networkType) }.getOrDefault("? (needs phone permission)")
             data = dataName(tm.dataState)
+            if (tm.simState == TelephonyManager.SIM_STATE_ABSENT) {
+                service = "No SIM card inserted"
+                inService = false
+            }
             val sim = "${tm.simOperatorName.ifBlank { "?" }} (${tm.simOperator.ifBlank { "?" }})"
             val net = tm.networkOperatorName.ifBlank { "none" } +
                 tm.networkOperator.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
@@ -187,6 +192,7 @@ fun CellularCard() {
     val lteBands = cells.orEmpty().filterIsInstance<CellInfoLte>().mapNotNull { lteBand(it.cellIdentity.earfcn) }.toSet()
     val verdict = when {
         inService -> null
+        tm.simState == TelephonyManager.SIM_STATE_ABSENT -> "No SIM card: insert one to test the mobile network."
         cells == null -> null
         cells!!.isEmpty() -> "The watch can't see any cell towers. On a US T-Mobile SIM (like SpeedTalk) that " +
             "usually means it doesn't support the US 4G bands (2, 4, 12, 66, 71). Make sure location " +
@@ -226,7 +232,13 @@ fun CellularCard() {
         if (!canScan) {
             Text("Seeing nearby cell towers (and their bands) needs precise location permission.", color = Muted, fontSize = 11.sp)
             SmallAction("Scan cell towers") {
-                askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                askLocation.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.READ_PHONE_STATE, // network type on Android 11+
+                    ),
+                )
             }
         } else {
             val list = cells.orEmpty()
