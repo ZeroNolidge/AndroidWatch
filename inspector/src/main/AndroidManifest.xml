@@ -3,6 +3,9 @@
 
     <!-- Needed to read heart-rate sensors on Android 6+. -->
     <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <!-- Updates card: download new versions of the watch apps and install them. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Listing nearby cell towers (to see which mobile bands the watch can use). -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -14,6 +17,9 @@
         <package android:name="com.google.android.gms" />
         <package android:name="com.android.vending" />
         <package android:name="com.google.android.gsf" />
+        <!-- The other watch apps, to compare installed vs latest versions. -->
+        <package android:name="com.androidwatch.launcher" />
+        <package android:name="com.androidwatch.phonelink" />
     </queries>
 
     <application
@@ -30,5 +36,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <receiver android:name=".InstallResultReceiver" android:exported="false" />
     </application>
 </manifest>

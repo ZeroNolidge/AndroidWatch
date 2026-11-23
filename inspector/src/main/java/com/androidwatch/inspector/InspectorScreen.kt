@@ -63,6 +63,7 @@ fun InspectorScreen(
                 ZoomButtons(context, Modifier.fillMaxWidth().padding(bottom = 2.dp))
             }
             item { VerdictCard(report.verdict) }
+            item { UpdatesCard() }
             item { SettingsShortcutsCard() }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {

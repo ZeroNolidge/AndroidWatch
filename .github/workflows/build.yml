@@ -27,6 +27,24 @@ jobs:
           cp launcher/build/outputs/apk/debug/launcher-debug.apk dist/watch-face.apk
           cp phonelink/build/outputs/apk/debug/phonelink-debug.apk dist/phone-link-watch.apk
           cp companion/build/outputs/apk/debug/companion-debug.apk dist/watch-link-phone.apk
+      - name: Write versions.json (read by the Inspector's Updates card)
+        run: |
+          python3 - <<'PY'
+          import json
+          apps = {
+              "watch-inspector.apk": "inspector",
+              "watch-face.apk": "launcher",
+              "phone-link-watch.apk": "phonelink",
+              "watch-link-phone.apk": "companion",
+          }
+          out = {}
+          for asset, module in apps.items():
+              meta = json.load(open(f"{module}/build/outputs/apk/debug/output-metadata.json"))
+              el = meta["elements"][0]
+              out[asset] = {"package": meta["applicationId"], "versionCode": el["versionCode"], "versionName": el["versionName"]}
+          json.dump(out, open("dist/versions.json", "w"), indent=2)
+          print(json.dumps(out, indent=2))
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: watch-apks
@@ -39,6 +57,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest dist/*.apk --target "$GITHUB_SHA" --prerelease \
+          gh release create latest dist/*.apk dist/versions.json --target "$GITHUB_SHA" --prerelease \
             --title "Latest build" \
             --notes "Built from ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}. Open this page on the watch and tap an APK to install."
