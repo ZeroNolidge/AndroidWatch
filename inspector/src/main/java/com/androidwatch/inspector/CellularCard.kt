@@ -144,9 +144,12 @@ fun CellularCard() {
     var cells by remember { mutableStateOf<List<CellInfo>?>(null) }
     var permissionTick by remember { mutableIntStateOf(0) }
 
-    val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { permissionTick++ }
-    val canScan = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
-        PackageManager.PERMISSION_GRANTED
+    val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissionTick++ }
+    // Android 10+ only lists cell towers with precise location (and 12+ wants both asked together).
+    val scanPermission =
+        if (android.os.Build.VERSION.SDK_INT >= 29) Manifest.permission.ACCESS_FINE_LOCATION
+        else Manifest.permission.ACCESS_COARSE_LOCATION
+    val canScan = context.checkSelfPermission(scanPermission) == PackageManager.PERMISSION_GRANTED
 
     DisposableEffect(Unit) {
         @Suppress("DEPRECATION")
@@ -221,8 +224,10 @@ fun CellularCard() {
 
         Spacer(Modifier.height(4.dp))
         if (!canScan) {
-            Text("Seeing nearby cell towers (and their bands) needs location permission.", color = Muted, fontSize = 11.sp)
-            SmallAction("Scan cell towers") { askLocation.launch(Manifest.permission.ACCESS_COARSE_LOCATION) }
+            Text("Seeing nearby cell towers (and their bands) needs precise location permission.", color = Muted, fontSize = 11.sp)
+            SmallAction("Scan cell towers") {
+                askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+            }
         } else {
             val list = cells.orEmpty()
             Text("Cell towers seen: ${list.size}", color = Muted, fontSize = 11.sp)

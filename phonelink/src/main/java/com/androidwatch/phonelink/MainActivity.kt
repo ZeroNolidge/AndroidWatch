@@ -98,11 +98,16 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun App() {
         var picking by rememberSaveable { mutableStateOf(Prefs.phoneAddress(this) == null) }
+        // Round screens: keep the fixed header clear of the curved top edge.
+        val round = isRoundScreen()
+        val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+        val side = if (round) (minOf(cfg.screenWidthDp, cfg.screenHeightDp) * 0.12f).dp else 0.dp
+        val top = if (round) (cfg.screenHeightDp * 0.1f).dp else 0.dp
         Column(
             Modifier
                 .fillMaxSize()
                 .background(Color.Black)
-                .padding(horizontal = 8.dp),
+                .padding(start = 8.dp + side, end = 8.dp + side, top = top),
         ) {
             if (picking) {
                 PhonePicker(onPicked = { device ->
@@ -126,7 +131,12 @@ class MainActivity : ComponentActivity() {
             runCatching { adapter?.bondedDevices?.toList() }.getOrNull().orEmpty()
                 .sortedBy { it.name ?: it.address }
         }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                bottom = if (isRoundScreen()) (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.16f).dp else 0.dp,
+            ),
+        ) {
             item {
                 Text("Pick your phone", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 10.dp))
@@ -198,7 +208,11 @@ class MainActivity : ComponentActivity() {
 /** List of mirrored notifications; also used by the screenshot test. */
 @Composable
 fun NotificationCards(items: List<PhoneNotification>, expandFirst: Boolean = false) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val bottom = if (isRoundScreen()) (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.16f).dp else 0.dp
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = bottom),
+    ) {
         items(items, key = { it.key }) { NotificationCard(it, startExpanded = expandFirst && it == items.first()) }
         item { Spacer(Modifier.height(20.dp)) }
     }

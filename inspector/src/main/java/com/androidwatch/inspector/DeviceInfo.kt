@@ -62,6 +62,7 @@ object DeviceInfo {
         31 to "android.app.ForegroundServiceStartNotAllowedException",
         33 to "android.window.OnBackInvokedDispatcher",
         34 to "android.credentials.CredentialManager",
+        35 to "android.os.ProfilingManager",
     )
 
     private fun probeApiLevel(): Int {
@@ -102,9 +103,9 @@ object DeviceInfo {
         val claimedMajor = majorOf(claimed)
         val realMajor = majorOf(real)
         val versionMismatch = claimedMajor != null && realMajor != null && claimedMajor != realMajor
-        // Probes stop at 34 and skip 32, so only flag when the API level is
+        // Probes stop at 35 and skip 32, so only flag when the API level is
         // clearly higher than what the framework actually contains.
-        val sdkInflated = sdk <= 34 && probed < sdk && sdk != 32
+        val sdkInflated = sdk <= 35 && probed < sdk && sdk != 32
 
         val summary = when {
             sdkInflated ->

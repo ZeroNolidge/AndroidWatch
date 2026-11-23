@@ -55,6 +55,7 @@ fun InspectorScreen(
                 .fillMaxSize()
                 .background(Color.Black)
                 .padding(horizontal = 8.dp),
+            contentPadding = roundListPadding(),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             item { Spacer(Modifier.height(8.dp)) }

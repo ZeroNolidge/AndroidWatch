@@ -14,7 +14,7 @@ android {
         // "Android 13" turns out to be something much older.
         minSdk = 21
         targetSdk = 34
-        versionCode = 4
+        versionCode = 5
         versionName = "1.2"
     }
 

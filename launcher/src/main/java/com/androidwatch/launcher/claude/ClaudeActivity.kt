@@ -55,6 +55,8 @@ import com.androidwatch.launcher.TextZoom
 import com.androidwatch.launcher.WatchDensity
 import com.androidwatch.launcher.ZoomButtons
 import com.androidwatch.launcher.ZoomedText
+import com.androidwatch.launcher.isRoundScreen
+import com.androidwatch.launcher.roundListPadding
 import com.androidwatch.launcher.rememberHideKeyboard
 import com.androidwatch.launcher.rememberKeyboardVisible
 import androidx.compose.foundation.text.KeyboardActions
@@ -224,7 +226,18 @@ class ClaudeActivity : ComponentActivity() {
             }
         }
 
-        Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+        // Round screens: keep the header and the input row inside the circle.
+        val round = isRoundScreen()
+        val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+        val d = minOf(cfg.screenWidthDp, cfg.screenHeightDp)
+        Column(
+            Modifier.fillMaxSize().padding(
+                start = 8.dp + if (round) (d * 0.14f).dp else 0.dp,
+                end = 8.dp + if (round) (d * 0.14f).dp else 0.dp,
+                top = if (round) (d * 0.10f).dp else 0.dp,
+                bottom = if (round) (d * 0.15f).dp else 0.dp,
+            ),
+        ) {
             if (keyboardOpen) {
                 // The keyboard covers most of a watch screen: show only the text being typed.
                 Spacer(Modifier.weight(1f))
@@ -328,7 +341,11 @@ class ClaudeActivity : ComponentActivity() {
         BackHandler { screen = Screen.CHAT }
         val projects = ClaudeProjects.all(this)
         val current = ClaudeProjects.current(this)
-        LazyColumn(Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyColumn(
+            Modifier.fillMaxSize().padding(8.dp),
+            contentPadding = roundListPadding(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             item { Text("Projects", color = ClaudeOrange, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
             items(projects, key = { it.id }) { p ->
                 Row(
@@ -361,7 +378,7 @@ class ClaudeActivity : ComponentActivity() {
     @Composable
     private fun Setup() {
         BackHandler(enabled = ClaudeProjects.current(this) != null) { screen = Screen.CHAT }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(10.dp)) {
+        Column(Modifier.fillMaxSize().padding(roundListPadding()).verticalScroll(rememberScrollState()).padding(10.dp)) {
             Text("Set up Claude", color = ClaudeOrange, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
             Text(
@@ -396,7 +413,7 @@ class ClaudeActivity : ComponentActivity() {
         var inbox by remember { mutableStateOf("") }
         var gh by remember { mutableStateOf("") }
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp),
+            Modifier.fillMaxSize().padding(roundListPadding()).verticalScroll(rememberScrollState()).padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text("Add project by hand", color = ClaudeOrange, fontSize = 14.sp, fontWeight = FontWeight.Bold)

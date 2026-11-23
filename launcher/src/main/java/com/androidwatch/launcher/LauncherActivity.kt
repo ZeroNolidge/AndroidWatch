@@ -84,6 +84,7 @@ class LauncherActivity : ComponentActivity() {
         )
         state.favorites.value = favorites.get()
         state.raiseToWake.value = RaiseToWakeService.mode(this)
+        RoundScreen.load(this)
         RaiseToWakeService.ensureRunning(this)
         reloadApps()
 
@@ -102,6 +103,10 @@ class LauncherActivity : ComponentActivity() {
             if (!hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) add(Manifest.permission.ACCESS_COARSE_LOCATION)
             if (Build.VERSION.SDK_INT >= 29 && !hasPermission(Manifest.permission.ACTIVITY_RECOGNITION)) {
                 add(Manifest.permission.ACTIVITY_RECOGNITION)
+            }
+            // Android 13+: without this, Claude replies arrive silently.
+            if (Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
         if (needed.isNotEmpty()) requestPermissions.launch(needed.toTypedArray())

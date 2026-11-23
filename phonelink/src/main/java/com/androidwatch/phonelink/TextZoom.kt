@@ -33,6 +33,7 @@ object TextZoom {
 
     fun load(context: Context) {
         scale.floatValue = prefs(context).getFloat("text_zoom", 1f)
+        RoundScreen.load(context)
     }
 
     fun bigger(context: Context) = set(context, steps.firstOrNull { it > scale.floatValue + 0.01f } ?: steps.last())
@@ -69,6 +70,10 @@ fun ZoomButtons(context: Context, modifier: Modifier = Modifier) {
                 color = Color(0xFF9E9E9E), fontSize = 12.sp,
             )
             ZoomKey("A+") { TextZoom.bigger(context) }
+            // Round-screen layout: auto / on / off.
+            ZoomKey(RoundScreen.mode.value.symbol) {
+                RoundScreen.cycle(context)
+            }
         }
     }
 }

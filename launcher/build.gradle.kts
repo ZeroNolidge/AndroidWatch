@@ -14,7 +14,7 @@ android {
         // Both watches are Android 8.1 or newer.
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
+        versionCode = 11
         versionName = "1.8"
     }
 

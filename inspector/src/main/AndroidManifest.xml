@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.BODY_SENSORS" />
     <!-- Listing nearby cell towers (to see which mobile bands the watch can use). -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- Android 11+ hides other apps' packages unless we declare them here. -->
     <queries>

@@ -64,3 +64,40 @@ class M99FaceScreenshotTest {
         LauncherApp(s, stepsAvailable = false, onLaunch = {}, onToggleFavorite = {})
     }
 }
+
+/** The round 466×466 watch, at two plausible densities, round layout forced on. */
+class RoundFaceScreenshotTest {
+    private fun cfg(dpi: Int) = DeviceConfig(
+        screenWidth = 466, screenHeight = 466, xdpi = dpi, ydpi = dpi,
+        density = Density.create(dpi), orientation = ScreenOrientation.PORTRAIT,
+    )
+
+    @get:Rule
+    val paparazzi = Paparazzi(deviceConfig = cfg(320))
+
+    private fun state() = FaceState().apply {
+        battery.intValue = 64
+        steps.value = 5210
+        weather.value = Weather(11, "°C", "Rain", "🌧️")
+        val colors = listOf(AColor.RED, AColor.GREEN, AColor.BLUE, AColor.YELLOW)
+        apps.value = listOf("Phone", "Messages", "Camera", "Maps").mapIndexed { i, n ->
+            AppEntry(n, "pkg.$i", "a", Bitmap.createBitmap(60, 60, Bitmap.Config.ARGB_8888).also {
+                Canvas(it).drawCircle(30f, 30f, 30f, Paint().apply { color = colors[i] })
+            })
+        }
+        favorites.value = listOf("pkg.0", "pkg.1", "pkg.2", "pkg.3")
+        claudeLast.value = "✅ Added round-screen layouts and pushed"
+        claudeUnread.intValue = 1
+    }
+
+    @Test fun face320dpi() {
+        RoundScreen.mode.value = RoundScreen.Mode.ON
+        paparazzi.snapshot { LauncherApp(state(), true, {}, {}) }
+    }
+
+    @Test fun face240dpi() {
+        RoundScreen.mode.value = RoundScreen.Mode.ON
+        paparazzi.unsafeUpdateConfig(deviceConfig = cfg(240))
+        paparazzi.snapshot { LauncherApp(state(), true, {}, {}) }
+    }
+}
