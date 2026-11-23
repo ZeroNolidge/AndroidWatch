@@ -63,6 +63,7 @@ fun InspectorScreen(
                 ZoomButtons(context, Modifier.fillMaxWidth().padding(bottom = 2.dp))
             }
             item { VerdictCard(report.verdict) }
+            item { SettingsShortcutsCard() }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                     SmallButton("Save report", onSave, Modifier.weight(1f))
