@@ -4,6 +4,11 @@ import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -68,12 +73,13 @@ fun LauncherApp(
     onToggleRaiseToWake: () -> Unit = {},
     onOpenClaude: () -> Unit = {},
 ) {
-    val pager = rememberPagerState(pageCount = { 2 })
+    // Pages: weather (swipe right from the face) · face · apps (swipe left).
+    val pager = rememberPagerState(initialPage = PAGE_FACE, pageCount = { 3 })
     val scope = rememberCoroutineScope()
 
     // Home button / back gesture always return to the face.
-    LaunchedEffect(state.homePresses.intValue) { pager.animateScrollToPage(0) }
-    BackHandler(enabled = pager.currentPage != 0) { scope.launch { pager.animateScrollToPage(0) } }
+    LaunchedEffect(state.homePresses.intValue) { pager.animateScrollToPage(PAGE_FACE) }
+    BackHandler(enabled = pager.currentPage != PAGE_FACE) { scope.launch { pager.animateScrollToPage(PAGE_FACE) } }
 
     MaterialTheme(colorScheme = darkColorScheme()) {
         HorizontalPager(
@@ -83,19 +89,20 @@ fun LauncherApp(
                 .background(Color.Black),
         ) { page ->
             when (page) {
-                0 -> if (isRoundScreen()) RoundWatchFace(
+                PAGE_WEATHER -> WeatherPage(state, onWeatherTapped)
+                PAGE_FACE -> if (isRoundScreen()) RoundWatchFace(
                     state = state,
                     stepsAvailable = stepsAvailable,
                     onLaunch = onLaunch,
-                    onOpenApps = { scope.launch { pager.animateScrollToPage(1) } },
-                    onWeatherTapped = onWeatherTapped,
+                    onOpenApps = { scope.launch { pager.animateScrollToPage(PAGE_APPS) } },
+                    onWeatherTapped = { scope.launch { pager.animateScrollToPage(PAGE_WEATHER) } },
                     onOpenClaude = onOpenClaude,
                 ) else WatchFace(
                     state = state,
                     stepsAvailable = stepsAvailable,
                     onLaunch = onLaunch,
-                    onOpenApps = { scope.launch { pager.animateScrollToPage(1) } },
-                    onWeatherTapped = onWeatherTapped,
+                    onOpenApps = { scope.launch { pager.animateScrollToPage(PAGE_APPS) } },
+                    onWeatherTapped = { scope.launch { pager.animateScrollToPage(PAGE_WEATHER) } },
                     onOpenClaude = onOpenClaude,
                 )
                 else -> AppDrawer(state, onLaunch, onToggleFavorite, onToggleRaiseToWake)
@@ -154,6 +161,7 @@ private fun WatchFace(
                 )
             }
         }
+        ForecastLine(state, fontSize = 12.sp)
         if (state.weather.value == null) {
             state.weatherStatus.value?.let {
                 Text(
@@ -399,10 +407,18 @@ private fun RoundWatchFace(
     val timePattern = if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm"
     val small = (d * 0.056f).coerceIn(11f, 15f).sp
 
+    // Ring and content are layered (Box), not stacked.
+    Box(Modifier.fillMaxSize()) {
+    // Dial ring: next 12 h of rain/snow around the edge, plus steps progress.
+    DialRing(
+        forecast = state.forecast.value,
+        nowMillis = now.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
+        stepsFraction = if (stepsAvailable) state.steps.value?.let { it / STEP_GOAL.toFloat() } else null,
+    )
     Column(
         Modifier
             .fillMaxSize()
-            .padding(top = (d * 0.07f).dp, bottom = (d * 0.06f).dp, start = (d * 0.1f).dp, end = (d * 0.1f).dp),
+            .padding(top = (d * 0.07f).dp, bottom = (d * 0.085f).dp, start = (d * 0.11f).dp, end = (d * 0.11f).dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // Battery and weather, short enough for the narrow top of the circle.
@@ -429,7 +445,9 @@ private fun RoundWatchFace(
             color = Color.White, fontSize = (d * 0.25f).sp, fontWeight = FontWeight.Light, maxLines = 1,
         )
         Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = Accent, fontSize = (d * 0.064f).sp)
-        if (stepsAvailable) {
+        ForecastLine(state, fontSize = small)
+        // On small round screens the inner orange arc already shows steps; skip the number.
+        if (stepsAvailable && d >= 280f) {
             var showDebug by remember { mutableStateOf(false) }
             Text(
                 "👟 ${state.steps.value ?: "–"}",
@@ -462,6 +480,152 @@ private fun RoundWatchFace(
             favApps.getOrNull(1)?.let { app ->
                 Image(app.icon.asImageBitmap(), app.label, Modifier.size(icon).clickable { onLaunch(app) })
             }
+        }
+    }
+    }
+}
+
+private const val PAGE_WEATHER = 0
+private const val PAGE_FACE = 1
+private const val PAGE_APPS = 2
+private const val STEP_GOAL = 10_000
+private val RainBlue = Color(0xFF4FC3F7)
+private val SnowWhite = Color(0xFFE8F4FF)
+
+/** "🌧 Rain from 3 PM (70%)": one line; nothing until a forecast has loaded. */
+@Composable
+private fun ForecastLine(state: FaceState, fontSize: androidx.compose.ui.unit.TextUnit) {
+    val f = state.forecast.value ?: return
+    val text = PrecipSummary.summarize(f)
+    if (text.isBlank()) return
+    Text(text, color = if (text.startsWith("☀")) Muted else RainBlue, fontSize = fontSize, maxLines = 1,
+        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+}
+
+/**
+ * Round-face dial: the ring is the next 12 hours, positioned like a clock
+ * (rain at 3 PM sits at the 3 o'clock position). Blue = rain, white = snow,
+ * brighter = more likely. An orange dot marks now. The inner arc is steps
+ * toward the daily goal.
+ */
+@Composable
+private fun DialRing(forecast: Forecast?, nowMillis: Long, stepsFraction: Float?) {
+    val zone = java.time.ZoneId.systemDefault()
+    fun angleOf(t: Long): Float {
+        val z = java.time.Instant.ofEpochMilli(t).atZone(zone)
+        return ((z.hour % 12) * 30f + z.minute * 0.5f) - 90f
+    }
+    Canvas(Modifier.fillMaxSize()) {
+        val d = minOf(size.width, size.height)
+        val stroke = d * 0.03f
+        val r = d / 2f - stroke / 2f - d * 0.008f
+        val topLeft = Offset(center.x - r, center.y - r)
+        val arcSize = Size(2 * r, 2 * r)
+
+        // Hour ticks for orientation.
+        for (h in 0 until 12) {
+            val a = Math.toRadians(h * 30.0 - 90.0)
+            val inner = r - stroke * (if (h % 3 == 0) 0.9f else 0.5f)
+            drawLine(
+                Color(0x55FFFFFF),
+                Offset(center.x + (inner * Math.cos(a)).toFloat(), center.y + (inner * Math.sin(a)).toFloat()),
+                Offset(center.x + ((r + stroke / 2) * Math.cos(a)).toFloat(), center.y + ((r + stroke / 2) * Math.sin(a)).toFloat()),
+                strokeWidth = d * 0.006f,
+            )
+        }
+
+        // Precipitation over the next 12 hours.
+        val windowEnd = nowMillis + 12 * 3_600_000L - 60_000L
+        forecast?.hours?.forEach { h ->
+            val start = maxOf(h.time, nowMillis)
+            val end = minOf(h.time + 3_600_000L, windowEnd)
+            if (end <= start || (h.precipChance < 20 && h.precipMm < 0.1)) return@forEach
+            val base = if (h.isSnow) SnowWhite else RainBlue
+            val alpha = (0.3f + 0.7f * (h.precipChance.coerceIn(0, 100) / 100f)).coerceAtMost(1f)
+            var sweep = (end - start) / 3_600_000f * 30f
+            if (sweep < 1f) sweep = 1f
+            drawArc(base.copy(alpha = alpha), angleOf(start), sweep, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Butt))
+        }
+
+        // Now marker.
+        val na = Math.toRadians(angleOf(nowMillis).toDouble())
+        drawCircle(Color(0xFFFFA726), stroke * 0.75f, Offset(center.x + (r * Math.cos(na)).toFloat(), center.y + (r * Math.sin(na)).toFloat()))
+
+        // Steps toward the goal, on a thin inner ring.
+        stepsFraction?.let { fr ->
+            val r2 = r - stroke * 1.4f
+            val tl2 = Offset(center.x - r2, center.y - r2)
+            val s2 = Size(2 * r2, 2 * r2)
+            val w = stroke * 0.35f
+            drawArc(Color(0x22FFFFFF), 0f, 360f, false, tl2, s2, style = Stroke(w))
+            drawArc(Color(0xFFFFA726), -90f, 360f * fr.coerceIn(0f, 1f), false, tl2, s2, style = Stroke(w, cap = StrokeCap.Round))
+        }
+    }
+}
+
+/** Swipe right from the face: today's high/low, the rain/snow summary and the next 12 hours. */
+@Composable
+internal fun WeatherPage(state: FaceState, onRetry: () -> Unit) {
+    var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { delay(60_000); nowTick = System.currentTimeMillis() } }
+    val f = state.forecast.value
+    val w = state.weather.value
+    val timeFmt = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+    androidx.compose.foundation.lazy.LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal = 12.dp),
+        contentPadding = roundListPadding().let { rp ->
+            androidx.compose.foundation.layout.PaddingValues(
+                start = rp.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
+                end = rp.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
+                top = rp.calculateTopPadding() + 12.dp,
+                bottom = rp.calculateBottomPadding() + 12.dp,
+            )
+        },
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        item {
+            Text(
+                if (w != null) "${w.icon} ${w.temperature}${w.unit} · ${w.description}" else "Weather",
+                color = Color.White, fontSize = 17.sp, textAlign = TextAlign.Center,
+            )
+        }
+        if (f == null) {
+            item {
+                Text(
+                    state.weatherStatus.value ?: "Loading forecast…",
+                    color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center,
+                    modifier = Modifier.clickable(onClick = onRetry).padding(8.dp),
+                )
+            }
+            return@LazyColumn
+        }
+        item { Text("High ${f.high}° · Low ${f.low}°", color = Accent, fontSize = 13.sp) }
+        item {
+            val summary = PrecipSummary.summarize(f, nowTick)
+            Text(summary, color = if (summary.startsWith("☀")) Muted else RainBlue, fontSize = 14.sp,
+                textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 4.dp))
+        }
+        f.hours.filter { it.time + 3_600_000L > nowTick }.take(12).forEach { h -> item(key = h.time) {
+            Row(
+                Modifier.fillMaxWidth().background(Chip, RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(timeFmt.format(java.util.Date(h.time)), color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                Text(ForecastClient.icon(h.code), fontSize = 13.sp)
+                Spacer(Modifier.width(8.dp))
+                Text("${h.temperature}°", color = Color.White, fontSize = 13.sp, modifier = Modifier.width(36.dp), textAlign = TextAlign.End)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (h.precipChance > 0) "💧${h.precipChance}%" else "",
+                    color = if (h.wet) RainBlue else Muted, fontSize = 12.sp,
+                    modifier = Modifier.width(48.dp), textAlign = TextAlign.End,
+                )
+            }
+        } }
+        item {
+            Text("Updated ${timeFmt.format(java.util.Date(f.fetchedAt))} · tap to refresh", color = Muted, fontSize = 10.sp,
+                modifier = Modifier.clickable(onClick = onRetry).padding(6.dp))
         }
     }
 }

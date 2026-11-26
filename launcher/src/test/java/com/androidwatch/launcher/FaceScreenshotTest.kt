@@ -8,6 +8,7 @@ import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import com.android.resources.Density
 import com.android.resources.ScreenOrientation
+import androidx.compose.foundation.background
 import org.junit.Rule
 import org.junit.Test
 
@@ -88,11 +89,35 @@ class RoundFaceScreenshotTest {
         favorites.value = listOf("pkg.0", "pkg.1", "pkg.2", "pkg.3")
         claudeLast.value = "✅ Added round-screen layouts and pushed"
         claudeUnread.intValue = 1
+        forecast.value = sampleForecast()
+    }
+
+    /** Dry now, rain from ~2 h out, turning to snow after ~6 h. */
+    private fun sampleForecast(): Forecast {
+        val hour = 3_600_000L
+        val start = System.currentTimeMillis() / hour * hour
+        val chances = listOf(0, 5, 30, 70, 90, 80, 60, 70, 85, 50, 20, 0, 0)
+        val hours = chances.mapIndexed { i, c ->
+            HourForecast(start + i * hour, 11 - i / 2, c, if (c >= 50) 1.0 else 0.0, if (i >= 6 && c >= 50) 0.8 else 0.0, if (c >= 50) 61 else 3)
+        }
+        return Forecast(hours, emptyList(), 12, 3, "°C", System.currentTimeMillis())
     }
 
     @Test fun face320dpi() {
         RoundScreen.mode.value = RoundScreen.Mode.ON
         paparazzi.snapshot { LauncherApp(state(), true, {}, {}) }
+    }
+
+    @Test fun weatherPage() {
+        RoundScreen.mode.value = RoundScreen.Mode.ON
+        paparazzi.unsafeUpdateConfig(deviceConfig = cfg(240))
+        paparazzi.snapshot {
+            androidx.compose.material3.MaterialTheme(colorScheme = androidx.compose.material3.darkColorScheme()) {
+                androidx.compose.foundation.layout.Box(
+                    androidx.compose.ui.Modifier.background(androidx.compose.ui.graphics.Color.Black),
+                ) { WeatherPage(state(), {}) }
+            }
+        }
     }
 
     @Test fun face240dpi() {

@@ -183,7 +183,7 @@ data class Weather(val temperature: Int, val unit: String, val description: Stri
 /** Current weather from Open-Meteo (free, no API key) for the watch's approximate location. */
 object WeatherClient {
 
-    private val usesFahrenheit get() = Locale.getDefault().country in setOf("US", "LR", "MM", "BS", "BZ", "KY", "PW")
+    val usesFahrenheit get() = Locale.getDefault().country in setOf("US", "LR", "MM", "BS", "BZ", "KY", "PW")
 
     fun isLocationOn(context: Context): Boolean {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager

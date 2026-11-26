@@ -23,6 +23,8 @@ class FaceState {
     val charging = mutableStateOf(false)
     val steps = mutableStateOf<Int?>(null)
     val weather = mutableStateOf<Weather?>(null)
+    /** Next 12 hours: drives the rain/snow summary, the round ring and the weather page. */
+    val forecast = mutableStateOf<Forecast?>(null)
     /** Why there is no weather yet (shown instead of it), or null. */
     val weatherStatus = mutableStateOf<String?>("Weather loading…")
     /** When step counting started, if after midnight (first day of use). */
@@ -209,8 +211,13 @@ class LauncherActivity : ComponentActivity() {
                 val location = deviceLocation ?: WeatherClient.ipLocation()
                 if (location != null) saveLocation(location)
                 val weather = location?.let { runCatching { WeatherClient.fetch(it.latitude, it.longitude) }.getOrNull() }
+                // Separate request: if it fails, the current temperature still shows.
+                val forecast = location?.let {
+                    runCatching { ForecastClient.fetch(it.latitude, it.longitude, WeatherClient.usesFahrenheit) }.getOrNull()
+                }
                 runOnUiThread {
                     weatherInFlight = false
+                    if (forecast != null) state.forecast.value = forecast
                     when {
                         weather != null -> {
                             state.weather.value = weather
