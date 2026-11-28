@@ -93,6 +93,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refresh.intValue++
+        // Opening the app reconnects right away instead of waiting for the next retry.
+        if (Prefs.phoneAddress(this) != null && !WatchState.connected.value) LinkService.start(this, restart = true)
     }
 
     @Composable
@@ -117,6 +119,15 @@ class MainActivity : ComponentActivity() {
                 })
             } else {
                 StatusBar(onClick = { picking = true })
+                if (!Background.isUnrestricted(this@MainActivity)) {
+                    Text(
+                        "⚠ Tap here so the watch keeps the link in the background (allow \"unrestricted\" battery use)",
+                        color = Color(0xFFFFB74D), fontSize = 11.sp, lineHeight = 14.sp,
+                        modifier = Modifier
+                            .padding(bottom = 4.dp)
+                            .clickable { Background.requestUnrestricted(this@MainActivity) },
+                    )
+                }
                 ZoomButtons(this@MainActivity, Modifier.padding(bottom = 4.dp))
                 NotificationList()
             }

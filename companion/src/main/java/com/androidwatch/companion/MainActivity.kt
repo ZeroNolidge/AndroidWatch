@@ -114,6 +114,14 @@ class MainActivity : ComponentActivity() {
                 button = "Bluetooth settings",
             ) { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
 
+            Step(
+                n = 4, done = Background.isUnrestricted(this@MainActivity), title = "Keep it running",
+                body = "Lets Watch Link keep the watch connected in the background. Choose Allow. On Samsung " +
+                    "phones also check Settings → Battery → Background usage limits and remove Watch Link " +
+                    "from \"Sleeping apps\".",
+                button = "Allow",
+            ) { Background.requestUnrestricted(this@MainActivity) }
+
             Spacer(Modifier.height(16.dp))
             Card {
                 Text("Test it", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)

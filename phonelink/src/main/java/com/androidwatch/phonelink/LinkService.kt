@@ -163,7 +163,7 @@ class LinkService : Service() {
             } catch (_: InterruptedException) {
                 break
             }
-            backoff = (backoff * 2).coerceAtMost(60_000L)
+            backoff = (backoff * 2).coerceAtMost(30_000L)
         }
     }
 
