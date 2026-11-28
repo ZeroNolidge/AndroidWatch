@@ -106,8 +106,11 @@ class MainActivity : ComponentActivity() {
 
             Step(
                 n = 3, done = LinkState.watchName.value != null, title = "Pair the watch",
-                body = "Pair the watch with this phone in Bluetooth settings, then open Phone Link on the " +
-                    "watch and pick this phone. The status above turns green when they're connected.",
+                body = "a) Pair the watch with this phone in Bluetooth settings. It will show as \"Paired\", " +
+                    "not \"Connected\": that's normal.\n\n" +
+                    "b) On the WATCH: open Phone Link and pick this phone. The watch starts the connection; " +
+                    "this phone just waits for it.\n\n" +
+                    "The status above turns green when they're connected.",
                 button = "Bluetooth settings",
             ) { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
 
