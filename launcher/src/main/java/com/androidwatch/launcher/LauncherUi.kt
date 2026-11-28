@@ -81,7 +81,10 @@ fun LauncherApp(
 
     // Home button / back gesture always return to the face.
     LaunchedEffect(state.homePresses.intValue) { pager.animateScrollToPage(PAGE_FACE) }
-    BackHandler(enabled = pager.currentPage != PAGE_FACE) { scope.launch { pager.animateScrollToPage(PAGE_FACE) } }
+    BackHandler {
+        // On the face, Back does nothing; elsewhere it returns to the face.
+        if (pager.currentPage != PAGE_FACE) scope.launch { pager.animateScrollToPage(PAGE_FACE) }
+    }
 
     MaterialTheme(colorScheme = darkColorScheme()) {
         HorizontalPager(
@@ -291,6 +294,18 @@ private fun AppDrawer(
         ) {
             // Watch Face settings scroll with the list (so they can reach the middle of a round screen).
             item(span = { GridItemSpan(maxLineSpan) }) {
+                var isHome by remember { mutableStateOf(HomeApp.isDefault(context)) }
+                val ask = androidx.activity.compose.rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+                ) { isHome = HomeApp.isDefault(context) }
+                SettingRow(
+                    "🏠 Home screen",
+                    if (isHome) "THIS FACE" else "TAP TO SET",
+                    on = isHome,
+                    onClick = { if (!isHome) HomeApp.request(context) { ask.launch(it) } },
+                )
+            }
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 SettingRow(
                     "✋ Raise to wake",
                     state.raiseToWake.value?.label ?: "OFF",
@@ -425,7 +440,8 @@ private fun RoundWatchFace(
     Column(
         Modifier
             .fillMaxSize()
-            .padding(top = (d * 0.07f).dp, bottom = (d * 0.085f).dp, start = (d * 0.11f).dp, end = (d * 0.11f).dp),
+            // The dial ring and the steps arc take the outer ~8% of the circle; stay inside them.
+            .padding(top = (d * 0.115f).dp, bottom = (d * 0.11f).dp, start = (d * 0.13f).dp, end = (d * 0.13f).dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // Heart, battery and weather, short enough for the narrow top of the circle.
@@ -450,7 +466,7 @@ private fun RoundWatchFace(
         Spacer(Modifier.weight(1f))
         Text(
             now.format(DateTimeFormatter.ofPattern(timePattern)),
-            color = Color.White, fontSize = (d * 0.25f).sp, fontWeight = FontWeight.Light, maxLines = 1,
+            color = Color.White, fontSize = (d * 0.21f).sp, fontWeight = FontWeight.Light, maxLines = 1,
         )
         Text(now.format(DateTimeFormatter.ofPattern("EEE, MMM d")), color = Accent, fontSize = (d * 0.064f).sp)
         ForecastLine(state, fontSize = small)
@@ -476,7 +492,7 @@ private fun RoundWatchFace(
         Spacer(Modifier.weight(1f))
         // Bottom of the circle is narrow: two pinned apps either side of the app-list button.
         val favApps = state.favorites.value.mapNotNull { pkg -> state.apps.value.firstOrNull { it.packageName == pkg } }.take(2)
-        val icon = (d * 0.16f).coerceIn(32f, 44f).dp
+        val icon = (d * 0.13f).coerceIn(30f, 42f).dp
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             favApps.getOrNull(0)?.let { app ->
                 Image(app.icon.asImageBitmap(), app.label, Modifier.size(icon).clickable { onLaunch(app) })
@@ -592,6 +608,24 @@ internal fun WeatherPage(state: FaceState, onRetry: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        item { Text("Today", color = Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+        state.heartStats.value?.let { hs ->
+            item {
+                Column(
+                    Modifier.fillMaxWidth().background(Chip, RoundedCornerShape(12.dp)).padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("❤ ${hs.average} bpm average", color = Color.White, fontSize = 15.sp)
+                    Text(
+                        "range ${hs.min}–${hs.max} · ${hs.checks} check${if (hs.checks == 1) "" else "s"}",
+                        color = Muted, fontSize = 11.sp,
+                    )
+                }
+            }
+        }
+        state.steps.value?.let { st ->
+            item { Text("👟 $st steps", color = Color.White, fontSize = 13.sp) }
+        }
         item {
             Text(
                 if (w != null) "${w.icon} ${w.temperature}${w.unit} · ${w.description}" else "Weather",
@@ -654,4 +688,33 @@ private fun HeartText(state: FaceState, fontSize: androidx.compose.ui.unit.TextU
         fontSize = fontSize,
         modifier = Modifier.clickable(onClick = onMeasure),
     )
+}
+
+/** Whether this Watch Face is the watch's home screen, and asking Android to make it so. */
+object HomeApp {
+    fun isDefault(context: android.content.Context): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val roles = context.getSystemService(android.app.role.RoleManager::class.java)
+            if (roles != null && roles.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
+                return roles.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)
+            }
+        }
+        val home = android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_HOME)
+        return context.packageManager.resolveActivity(home, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            ?.activityInfo?.packageName == context.packageName
+    }
+
+    /** Android 10+: the system's "set as default home app" prompt. Older: the Home app settings screen. */
+    fun request(context: android.content.Context, launch: (android.content.Intent) -> Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            val roles = context.getSystemService(android.app.role.RoleManager::class.java)
+            if (roles != null && roles.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
+                launch(roles.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME))
+                return
+            }
+        }
+        runCatching {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_HOME_SETTINGS))
+        }
+    }
 }

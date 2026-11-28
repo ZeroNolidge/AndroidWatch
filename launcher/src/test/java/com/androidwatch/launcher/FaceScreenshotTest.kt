@@ -92,6 +92,7 @@ class RoundFaceScreenshotTest {
         forecast.value = sampleForecast()
         heartRate.value = 104
         heartMeasuring.value = true
+        heartStats.value = HeartStats(average = 96, min = 71, max = 118, checks = 14)
     }
 
     /** Dry now, rain from ~2 h out, turning to snow after ~6 h. */

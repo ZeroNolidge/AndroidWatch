@@ -29,6 +29,7 @@ class FaceState {
     val heartRate = mutableStateOf<Int?>(null)
     val heartMeasuring = mutableStateOf(false)
     val heartAt = mutableStateOf<Long?>(null)
+    val heartStats = mutableStateOf<HeartStats?>(null)
     /** Why there is no weather yet (shown instead of it), or null. */
     val weatherStatus = mutableStateOf<String?>("Weather loading…")
     /** When step counting started, if after midnight (first day of use). */
@@ -95,7 +96,9 @@ class LauncherActivity : ComponentActivity() {
             state.heartMeasuring.value = measuring
             state.heartAt.value = at
         }
+        heart.onStats = { state.heartStats.value = it }
         heart.publishSaved()
+        state.heartStats.value = heart.todayStats()
         state.favorites.value = favorites.get()
         state.raiseToWake.value = RaiseToWakeService.mode(this)
         RoundScreen.load(this)
