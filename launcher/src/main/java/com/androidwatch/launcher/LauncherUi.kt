@@ -72,6 +72,8 @@ fun LauncherApp(
     onWeatherTapped: () -> Unit = {},
     onToggleRaiseToWake: () -> Unit = {},
     onOpenClaude: () -> Unit = {},
+    heartAvailable: Boolean = false,
+    onMeasureHeart: () -> Unit = {},
 ) {
     // Pages: weather (swipe right from the face) · face · apps (swipe left).
     val pager = rememberPagerState(initialPage = PAGE_FACE, pageCount = { 3 })
@@ -97,6 +99,7 @@ fun LauncherApp(
                     onOpenApps = { scope.launch { pager.animateScrollToPage(PAGE_APPS) } },
                     onWeatherTapped = { scope.launch { pager.animateScrollToPage(PAGE_WEATHER) } },
                     onOpenClaude = onOpenClaude,
+                    heart = if (heartAvailable) onMeasureHeart else null,
                 ) else WatchFace(
                     state = state,
                     stepsAvailable = stepsAvailable,
@@ -104,6 +107,7 @@ fun LauncherApp(
                     onOpenApps = { scope.launch { pager.animateScrollToPage(PAGE_APPS) } },
                     onWeatherTapped = { scope.launch { pager.animateScrollToPage(PAGE_WEATHER) } },
                     onOpenClaude = onOpenClaude,
+                    heart = if (heartAvailable) onMeasureHeart else null,
                 )
                 else -> AppDrawer(state, onLaunch, onToggleFavorite, onToggleRaiseToWake)
             }
@@ -121,6 +125,7 @@ private fun WatchFace(
     onOpenApps: () -> Unit,
     onWeatherTapped: () -> Unit,
     onOpenClaude: () -> Unit,
+    heart: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var now by remember { mutableStateOf(LocalDateTime.now()) }
@@ -144,6 +149,7 @@ private fun WatchFace(
     ) {
         // Status line, centred so the rounded corners can't cut it off.
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            heart?.let { HeartText(state, 15.sp, it) }
             val battery = state.battery.intValue
             if (battery >= 0) {
                 Text(
@@ -393,6 +399,7 @@ private fun RoundWatchFace(
     onOpenApps: () -> Unit,
     onWeatherTapped: () -> Unit,
     onOpenClaude: () -> Unit,
+    heart: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var now by remember { mutableStateOf(LocalDateTime.now()) }
@@ -421,8 +428,9 @@ private fun RoundWatchFace(
             .padding(top = (d * 0.07f).dp, bottom = (d * 0.085f).dp, start = (d * 0.11f).dp, end = (d * 0.11f).dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Battery and weather, short enough for the narrow top of the circle.
+        // Heart, battery and weather, short enough for the narrow top of the circle.
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            heart?.let { HeartText(state, small, it) }
             val battery = state.battery.intValue
             if (battery >= 0) {
                 Text(
@@ -628,4 +636,22 @@ internal fun WeatherPage(state: FaceState, onRetry: () -> Unit) {
                 modifier = Modifier.clickable(onClick = onRetry).padding(6.dp))
         }
     }
+}
+
+/** ❤ 104: bright red while measuring, dim between measurements. Tap to measure again (30 s). */
+@Composable
+private fun HeartText(state: FaceState, fontSize: androidx.compose.ui.unit.TextUnit, onMeasure: () -> Unit) {
+    val bpm = state.heartRate.value
+    val measuring = state.heartMeasuring.value
+    val text = when {
+        bpm != null -> "❤$bpm"
+        measuring -> "❤…"
+        else -> "❤–"
+    }
+    Text(
+        text,
+        color = if (measuring && bpm != null) Color(0xFFFF5252) else Muted,
+        fontSize = fontSize,
+        modifier = Modifier.clickable(onClick = onMeasure),
+    )
 }

@@ -25,6 +25,10 @@ class FaceState {
     val weather = mutableStateOf<Weather?>(null)
     /** Next 12 hours: drives the rain/snow summary, the round ring and the weather page. */
     val forecast = mutableStateOf<Forecast?>(null)
+    /** Heart rate: last bpm (null = none), measuring right now, and when that reading was taken. */
+    val heartRate = mutableStateOf<Int?>(null)
+    val heartMeasuring = mutableStateOf(false)
+    val heartAt = mutableStateOf<Long?>(null)
     /** Why there is no weather yet (shown instead of it), or null. */
     val weatherStatus = mutableStateOf<String?>("Weather loading…")
     /** When step counting started, if after midnight (first day of use). */
@@ -52,12 +56,14 @@ class LauncherActivity : ComponentActivity() {
     private val prefs by lazy { getSharedPreferences("launcher", MODE_PRIVATE) }
     private val favorites by lazy { Favorites(prefs) }
     private lateinit var steps: StepTracker
+    private lateinit var heart: HeartRateTracker
     private var lastWeatherFetch = 0L
     private var weatherInFlight = false
 
     private val requestPermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
             steps.start()
+            heart.measure()
             refreshWeather(force = true)
         }
 
@@ -84,6 +90,12 @@ class LauncherActivity : ComponentActivity() {
             },
             onDebug = { state.stepsDebug.value = it },
         )
+        heart = HeartRateTracker(this, prefs) { bpm, measuring, at ->
+            state.heartRate.value = bpm
+            state.heartMeasuring.value = measuring
+            state.heartAt.value = at
+        }
+        heart.publishSaved()
         state.favorites.value = favorites.get()
         state.raiseToWake.value = RaiseToWakeService.mode(this)
         RoundScreen.load(this)
@@ -106,6 +118,7 @@ class LauncherActivity : ComponentActivity() {
             if (Build.VERSION.SDK_INT >= 29 && !hasPermission(Manifest.permission.ACTIVITY_RECOGNITION)) {
                 add(Manifest.permission.ACTIVITY_RECOGNITION)
             }
+            if (heart.available && !heart.hasPermission) add(Manifest.permission.BODY_SENSORS)
             // Android 13+: without this, Claude replies arrive silently.
             if (Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
@@ -120,6 +133,8 @@ class LauncherActivity : ComponentActivity() {
                 onLaunch = { Apps.launch(this, it) },
                 onToggleFavorite = ::toggleFavorite,
                 onWeatherTapped = ::onWeatherTapped,
+                heartAvailable = heart.available,
+                onMeasureHeart = { heart.measure() },
                 onToggleRaiseToWake = ::toggleRaiseToWake,
                 onOpenClaude = { startActivity(Intent(this, com.androidwatch.launcher.claude.ClaudeActivity::class.java)) },
             )
@@ -135,6 +150,7 @@ class LauncherActivity : ComponentActivity() {
         super.onResume()
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         steps.start()
+        heart.measure()
         refreshWeather(force = false)
         refreshClaude()
     }
@@ -143,6 +159,7 @@ class LauncherActivity : ComponentActivity() {
         super.onPause()
         unregisterReceiver(batteryReceiver)
         steps.stop()
+        heart.stop()
     }
 
     override fun onDestroy() {

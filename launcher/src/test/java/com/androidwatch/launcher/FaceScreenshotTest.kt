@@ -90,6 +90,8 @@ class RoundFaceScreenshotTest {
         claudeLast.value = "✅ Added round-screen layouts and pushed"
         claudeUnread.intValue = 1
         forecast.value = sampleForecast()
+        heartRate.value = 104
+        heartMeasuring.value = true
     }
 
     /** Dry now, rain from ~2 h out, turning to snow after ~6 h. */
@@ -123,6 +125,6 @@ class RoundFaceScreenshotTest {
     @Test fun face240dpi() {
         RoundScreen.mode.value = RoundScreen.Mode.ON
         paparazzi.unsafeUpdateConfig(deviceConfig = cfg(240))
-        paparazzi.snapshot { LauncherApp(state(), true, {}, {}) }
+        paparazzi.snapshot { LauncherApp(state(), true, {}, {}, heartAvailable = true) }
     }
 }

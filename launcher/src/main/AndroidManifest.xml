@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Step counter needs this on Android 10+ (the M99); not needed on 8.1. -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- Heart rate on the face (short bursts only). -->
+    <uses-permission android:name="android.permission.BODY_SENSORS" />
     <!-- Raise to wake: keep sensing with the screen off, then turn the screen on. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
